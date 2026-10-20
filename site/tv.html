@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><meta name="theme-color" content="#0b1220"/><title>TunelyTV | Device Pairing Simulator</title><link rel="stylesheet" href="/static/tv.css"/></head>
+<body>
+<div class="ambient"></div>
+<main class="tv-app">
+  <div class="top"><div class="logo"><div class="mark">▶</div><b>tunely<span>TV</span></b></div><div class="tag">TV APP SIMULATOR <span class="dot"></span></div></div>
+  <section class="showcase"><div class="glow"></div><div class="eyebrow" id="eyebrow">GET CONNECTED</div><h1 id="statusHeading">Connect your TV<br/><span>in seconds.</span></h1><p id="statusDesc">Pair this simulated TunelyTV device to your web dashboard using a short-lived code. The native TV app can use this same API later.</p>
+    <div id="pairPanel"><div class="code-frame" id="codeFrame"><div class="code-title">YOUR SECURE PAIRING CODE</div><div class="code" id="pairCode">— — — —</div><div class="code-meta" id="expires">Generate a pairing code to start</div></div><button class="action" id="startButton">Generate pairing code <span>➜</span></button><p class="tip">Then enter the code at <strong>your TunelyTV dashboard → My Devices → Pair a TV</strong></p></div>
+    <div id="pairedPanel" hidden><div class="success"><span>✓</span><b>Device connected</b><small>Your account has been verified. Changes from the dashboard sync automatically.</small></div><div class="detail"><label>Device name</label><strong id="deviceName">—</strong></div><div class="detail"><label>Assigned playlist</label><strong id="playlistName">No playlist assigned</strong></div><div class="detail"><label>Source type</label><strong id="playlistType">—</strong></div><div class="detail"><label>Sync revision</label><strong id="revision">—</strong></div><div class="detail"><label>Last successful sync</label><strong id="syncedAt">—</strong></div><div class="tip">Playlist settings are received from the server. This simulator does not play streams or display credentials.</div></div>
+    <p class="err" id="err" role="alert"></p>
+  </section>
+  <div class="bottom"><div><span class="dot"></span> <span id="connection">Waiting for device enrollment</span></div><div><a href="/" target="_blank" rel="noopener">Open web dashboard ↗</a> <button id="reset">Reset simulator</button></div></div>
+</main>
+<script src="/static/tv.js"></script>
+</body></html>
