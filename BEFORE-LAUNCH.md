@@ -1,3 +1,5 @@
+> **v0.9.6 update:** Parts of this earlier development document describe a prior version. Current implementation details and new Railway instructions are in [V0.9.6-LICENSE-AND-ENTITLEMENTS.md](V0.9.6-LICENSE-AND-ENTITLEMENTS.md).
+
 # TunelyTV release checklist — NOT cleared for public paid launch
 
 - [ ] Test the full Railway HTTPS app and actual authorized stream playback (CORS/codec limitations still apply).

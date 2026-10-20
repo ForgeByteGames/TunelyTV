@@ -6,11 +6,14 @@
   <meta name="theme-color" content="#080e1c" />
   <meta name="robots" content="noindex, nofollow" />
   <meta name="description" content="TunelyTV account dashboard: organize your own authorized media playlists and link them to your devices." />
-  <title>TunelyTV | Your Dashboard</title>
+  <title>TunelyTV | Account & Sources</title>
   <link rel="stylesheet" href="/static/styles.css" />
   <link rel="stylesheet" href="/static/billing-v08.css" />
+  <link rel="stylesheet" href="/static/streamlined-v092.css" />
+  <link rel="stylesheet" href="/static/blue-shell-v095.css" />
+  <link rel="stylesheet" href="/static/license-v096.css" />
 </head>
-<body class="auth-locked">
+<body class="auth-locked account-v095">
   <div class="auth-screen" id="authScreen"><div class="auth-box"><div class="auth-logo"><span class="brand-mark">▶</span> <b>tunely<span>TV</span></b></div><div class="eyebrow">YOUR MEDIA. YOUR WAY.</div><h1 id="authHeading">Welcome back.</h1><p>Sign in to securely manage playlists and connect your TVs.</p><form id="authForm"><label for="authEmail">Email address</label><input type="email" id="authEmail" required autocomplete="username" placeholder="you@example.com"/><label for="authPassword">Password</label><input type="password" id="authPassword" required minlength="10" autocomplete="current-password" placeholder="At least 10 characters"/><div class="invite-entry" id="inviteEntry" hidden><label for="authInvite">Private test invitation code</label><input type="password" id="authInvite" maxlength="160" autocomplete="off" placeholder="Code provided by site owner" /></div><div class="form-error" id="authError" role="alert"></div><button type="submit" class="btn btn-primary" id="authSubmit">Sign in</button></form><button class="auth-switch" id="authSwitch" type="button">New here? Create an account</button><div class="auth-google">Google Sign-In · approved, not enabled yet</div><small>Development build · No included TV channels or subscriptions</small></div></div>
   <svg class="icon-defs" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
     <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></symbol>
@@ -45,17 +48,18 @@
         <div class="brand-mark"><span class="brand-play">▶</span><span class="mark-dot"></span></div>
         <div class="brand-name">tunely<span>TV</span><small>YOUR MEDIA. YOUR WAY.</small></div>
       </div>
-      <div class="workspace-label">YOUR WORKSPACE</div>
+      <div class="workspace-label">ACCOUNT SETTINGS</div>
       <nav class="nav" aria-label="Main navigation">
-        <button class="nav-link active" data-page="overview"><svg><use href="#i-grid"/></svg><span>Overview</span></button>
-        <a class="nav-link" href="/watch" style="text-decoration:none"><svg><use href="#i-tv"/></svg><span>Watch Live</span><span class="nav-count">↗</span></a>
-        <button class="nav-link" data-page="sources"><svg><use href="#i-playlist"/></svg><span>My Playlists</span><span class="nav-count" id="navSourceCount">0</span></button>
-        <button class="nav-link" data-page="devices"><svg><use href="#i-tv"/></svg><span>My Devices</span><span class="nav-count" id="navDeviceCount">0</span></button>
-        <button class="nav-link" data-page="guides"><svg><use href="#i-help"/></svg><span>Setup Guides</span></button>
+        <a class="nav-link public-home" href="/" style="text-decoration:none">Home</a><button class="nav-link active" data-page="overview"><svg><use href="#i-grid"/></svg><span>Overview</span></button>
+        <a class="nav-link" href="/watch" style="text-decoration:none"><svg><use href="#i-tv"/></svg><span>Live TV</span><span class="nav-count">↗</span></a>
+        <button class="nav-link" data-page="sources"><svg><use href="#i-playlist"/></svg><span>Sources</span><span class="nav-count" id="navSourceCount">0</span></button>
+        <button class="nav-link" data-page="devices"><svg><use href="#i-tv"/></svg><span>Devices</span><span class="nav-count" id="navDeviceCount">0</span></button>
+        <button class="nav-link optional-guide" data-page="guides"><svg><use href="#i-help"/></svg><span>Setup Guides</span></button>
         <div class="nav-divider"></div>
         <div class="nav-subheading">ACCOUNT</div>
         <button class="nav-link" data-page="billing"><svg><use href="#i-credit"/></svg><span>Plan & Billing</span></button>
         <button class="nav-link" data-page="settings"><svg><use href="#i-settings"/></svg><span>Settings</span></button>
+        <button class="nav-link" data-page="licenses" id="ownerNav" hidden><svg><use href="#i-shield"/></svg><span>Owner · Licenses</span></button>
       </nav>
       <div class="sidebar-spacer"></div>
       <div class="sidebar-help">
@@ -64,7 +68,7 @@
         <p>Follow the quick-start guide for your TV, mobile, or computer.</p>
         <button data-page="guides" class="sidebar-help-action">View setup guide <svg><use href="#i-arrow"/></svg></button>
       </div>
-      <div class="sidebar-bottom"><span class="status-dot"></span> Web staging API <span class="version">v0.8</span></div>
+      <div class="sidebar-bottom"><span class="status-dot"></span> Private staging <span class="version">v0.9.6</span></div>
     </aside>
 
     <main class="main">
@@ -76,7 +80,14 @@
         <section class="page active" id="page-overview">
           <div class="page-heading"><div><div class="eyebrow">WELCOME TO YOUR WORKSPACE</div><h1>Your media. <span>Your dashboard.</span></h1><p>Manage your authorized playlists and sync them to paired TunelyTV app devices.</p></div><span class="mode-badge"><svg><use href="#i-info"/></svg> PREVIEW MODE</span></div>
 
-          <div class="hero">
+          <div class="simple-home" id="simpleHome">
+          <div class="simple-home-header"><div><div class="eyebrow">YOUR STREAMING SPACE</div><h2>Ready to watch?</h2><p id="simpleWatchStatus">Your last playlist will be ready when you return.</p></div><a class="btn btn-primary simple-watch" href="/watch"><svg aria-hidden="true"><use href="#i-tv"/></svg> Watch Live <svg aria-hidden="true"><use href="#i-arrow"/></svg></a></div>
+          <div class="simple-cards">
+            <article class="simple-card"><span class="simple-card-icon"><svg aria-hidden="true"><use href="#i-playlist"/></svg></span><div><small>YOUR LAST PLAYLIST</small><strong id="simplePlaylistName">Loading…</strong><span id="simplePlaylistCount">0 playlists</span></div><div class="simple-card-actions"><button class="btn btn-secondary" data-page="sources">Manage</button><button class="btn btn-outline" data-open="source">+ Add</button></div></article>
+            <article class="simple-card"><span class="simple-card-icon"><svg aria-hidden="true"><use href="#i-tv"/></svg></span><div><small>CONNECTED DEVICES</small><strong id="simpleDeviceCount">0 registered</strong><span>Pair and manage your TVs</span></div><div class="simple-card-actions"><button class="btn btn-secondary" data-page="devices">Manage devices</button></div></article>
+          </div>
+          <div class="simple-bottom"><span>TunelyTV is a media player. Bring only sources you are authorized to use.</span><button data-page="guides">Need help setting up? →</button></div>
+        </div><div class="hero">
             <div class="hero-noise"></div><div class="hero-glow"></div>
             <div class="hero-content"><span class="hero-tag"><span class="hero-tag-dot"></span> YOUR STREAMING SETUP STARTS HERE</span><h2>One place for every<br/><em>screen you own.</em></h2><p>Add your playlist, pair your devices, and keep your setup organized across TunelyTV.</p><div class="hero-buttons"><button class="btn btn-primary" data-open="source"><svg><use href="#i-plus"/></svg> Add a playlist</button><button class="btn btn-outline" data-open="device"><svg><use href="#i-tv"/></svg> Add a device</button></div></div>
             <div class="hero-art" aria-hidden="true"><div class="orbit orbit-1"></div><div class="orbit orbit-2"></div><div class="illustration-screen"><div class="screen-inner"><div class="screen-logo"><span>▶</span> <b>tunelyTV</b></div><div class="screen-line"></div><div class="screen-ready"><span class="screen-ready-dot"></span> YOUR CONTENT, CONNECTED</div><div class="screen-panels"><i></i><i></i><i></i></div></div><div class="screen-leg"></div></div><div class="floating-device"><svg><use href="#i-mobile"/></svg><span>Connect devices<br/><small>TV · Phone · Web</small></span><span class="floating-check"><svg><use href="#i-check"/></svg></span></div></div>
@@ -103,13 +114,26 @@
             <div class="billing-overview-actions"><span class="billing-tag" id="billingPlanStatus">No active subscription</span><button class="btn btn-secondary" id="billingManage" type="button" disabled>Manage Billing ↗</button><button class="btn btn-secondary" id="billingRefresh" type="button">↻ Refresh status</button></div>
           </div>
           <div id="billingNotice" class="billing-notice" role="status">Payments are disabled until Stripe test settings are configured. No charges can occur.</div>
+          <section id="ownerSetup" class="owner-setup" hidden>
+            <h3>Verify your TunelyTV owner account</h3>
+            <p>For private development only. Enter the separate one-time owner setup token stored in Railway. This is not your signup invitation code.</p>
+            <form id="ownerSetupForm" class="owner-setup-form"><input type="password" id="ownerSetupToken" minlength="24" autocomplete="off" aria-label="Owner bootstrap token" placeholder="One-time owner setup token" required /><button type="submit" class="btn btn-primary">Verify owner</button></form>
+            <small id="ownerSetupStatus" role="status"></small>
+          </section>
           <div class="plan-intro" id="plan-inclusions">
-            <div><div class="eyebrow">YOUR PLAN, YOUR EXPERIENCE</div><h2>Compare TunelyTV plans</h2><p>TunelyTV plans cover supported apps and devices, not just the browser. <b>Free is TV-only</b> (1 registered TV when a native TV app launches); paid plans include eligible phone, tablet, and web playback. Bring your own authorized sources. The <b>7-day Plus Lifetime trial</b> requires no credit card and never charges automatically. Trial activation and all access restrictions are <b>planned, not yet enforced</b>.</p></div>
+            <div><div class="eyebrow">YOUR PLAN, YOUR EXPERIENCE</div><h2>Compare TunelyTV plans</h2><p>TunelyTV plans cover supported apps and devices, not just the browser. <b>Free is TV-only</b> (1 registered TV when a native TV app launches); paid plans include eligible phone, tablet, and web playback. Bring your own authorized sources. The <b>7-day Plus One-Time trial</b> requires no credit card and never charges automatically. Trial activation and key account entitlements are enforced by the staging backend; native apps remain in development.</p></div>
             <div class="plan-status-key"><span class="plan-status available">Available for testing</span><span class="plan-status planned">Planned · not active</span></div>
           </div>
-          <section class="trial-callout" aria-label="Seven-day Plus Lifetime trial plan">
-            <div><span class="trial-chip">7 DAYS FREE · PLANNED</span><h3>Try TunelyTV Plus Lifetime</h3><p>Explore Plus features for 7 days. <strong>No credit card required. No automatic charges.</strong> After the trial, choose the $19.99 one-time Plus purchase or return to Free: one registered TV when the TV app becomes available, with no phone, tablet, or web playback.</p><small>Trial signup and plan restrictions are not yet implemented; this is a preview of the approved offer.</small></div>
-            <button type="button" class="btn btn-secondary" disabled title="Trial activation will be enabled when server-side entitlement enforcement is implemented">Trial coming soon</button>
+          <section class="trial-callout" aria-label="Seven-day Plus One-Time trial">
+            <div><span class="trial-chip">7 DAYS FREE · NO CARD</span><h3>Try TunelyTV Plus One-Time</h3>
+            <p>Try the Plus player for seven days, then decide whether to purchase a defined major-version license for $19.99. <strong>No credit card. No automatic charges.</strong></p>
+            <small id="licenseTrialMessage">Checking your trial eligibility…</small></div>
+            <button type="button" class="btn btn-primary" id="startPlusTrial" disabled>Checking…</button>
+          </section>
+          <section class="license-status" aria-live="polite">
+            <div><span class="license-kicker">YOUR LICENSE</span><strong id="licensePlan">Loading…</strong><small id="licenseVersion">Version entitlement and device access</small></div>
+            <div><span class="license-kicker">ACCESS</span><strong id="licenseAccess">Checking…</strong><small id="licenseExpiration">—</small></div>
+            <div><span class="license-kicker">TV SLOTS</span><strong id="licenseSlots">—</strong><small>Phones, tablets and web don't count as TV slots</small></div>
           </section>
           <div class="pricing-grid pricing-v08">
             <article class="price-card" data-plan-card="free">
@@ -132,7 +156,7 @@
               <button type="button" class="btn btn-secondary" disabled data-plan-button="free">TV app coming later</button>
             </article>
             <article class="price-card" data-plan-card="plus">
-              <div class="plan-name">PLUS LIFETIME</div><h3>$19.99 <small>one-time purchase</small></h3><p>For viewers who want more organization without a monthly bill.</p>
+              <div class="plan-name">PLUS ONE-TIME</div><h3>$19.99 <small>one-time purchase</small></h3><p>For viewers who want more organization without a monthly bill.</p>
               <div class="trial-platform-note">2 registered TVs proposed; phone, tablet and web playback included.</div>
               <div class="plan-divider"></div>
               <div class="plan-feature-heading">Plus access</div>
@@ -151,7 +175,7 @@
                 <li>Tunely Home Windows companion</li>
                 <li>Enhanced Multi-View tier</li>
               </ul>
-              <div class="plan-exclusion"><strong>7-day free Plus trial:</strong> no card, no automatic charge; returns to TV-only Free unless Plus is purchased. Trial activation and restrictions are planned, not active. Plus catch-up remains planned. Multi-View is in private testing only, <b>not generally available</b>. Lifetime terms must be defined before sales.</div>
+              <div class="plan-exclusion"><strong>7-day free Plus trial:</strong> no card, no automatic charge; returns to TV-only Free unless Plus is purchased. Trial activation and basic account permissions are active in private testing. Plus catch-up remains planned. Multi-View is in private testing only, <b>not generally available</b>. The 1.x one-time license scope and support period must be published before sales.</div>
               <button type="button" class="btn btn-secondary" disabled data-plan-button="plus" data-billing-checkout="plus">Stripe not connected</button>
             </article>
             <article class="price-card highlighted" data-plan-card="premium">
@@ -209,7 +233,7 @@
               <tbody>
                 <tr class="feature-highlight-row"><th scope="row">Registered TV slots (proposed paid caps)</th><td>1 TV</td><td>2 TVs · proposed</td><td>3 TVs · proposed</td><td>5 TVs · proposed</td></tr>
                 <tr class="feature-highlight-row"><th scope="row">Phone, tablet and web playback</th><td class="excluded">Not included</td><td class="yes">Included</td><td class="yes">Included</td><td class="yes">Included</td></tr>
-                <tr class="feature-highlight-row"><th scope="row">7-day Plus Lifetime trial</th><td class="future">Eligible once</td><td class="yes">Plus access for 7 days</td><td>—</td><td>—</td></tr>
+                <tr class="feature-highlight-row"><th scope="row">7-day Plus One-Time trial</th><td class="future">Eligible once</td><td class="yes">Plus access for 7 days</td><td>—</td><td>—</td></tr>
                 <tr><th scope="row">Live TV playback (compatible streams)</th><td class="future">TV only · when released</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td></tr>
                 <tr><th scope="row">User-supplied M3U playlists</th><td class="yes">✓ · TV only</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td></tr>
                 <tr><th scope="row">EPG grid, mini guide, favorites &amp; recents</th><td class="future">TV app TBD</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td></tr>
@@ -225,11 +249,20 @@
                 <tr><th scope="row">One-time payment option</th><td>Free</td><td class="yes">✓</td><td>—</td><td>—</td></tr>
               </tbody></table>
             </div>
-            <p class="feature-compare-footnote"><strong>What these features mean:</strong> DVR is recording using the planned <b>Tunely Home Windows companion</b> and compatible customer-owned storage—not a cloud recording service. Catch-up means playing past programs <b>only if the user's authorized source actually provides that feature</b>; it is not guaranteed and is not DVR. Multi-View means showing more than one authorized stream on screen; Plus is proposed for 2 panes and Premium/Family for an enhanced layout targeting up to 4 panes. The actual number of simultaneous playable streams remains unconfirmed and subject to source authorization, browser support, and device capacity.<br><br><strong>Approved trial policy (not implemented yet):</strong> One introductory Plus Lifetime trial per eligible account. Seven consecutive 24-hour days from the server-recorded activation time; no card collection and no recurring or automatic charge. After expiry, users return to Free with one TV slot and no web, phone, or tablet playback. Saved playlists and account settings remain intact. During the web-only testing period, expired users can manage their accounts but cannot watch until purchasing access or until a compatible Free TV app launches. <br><br><strong>Platform availability:</strong> Current private testing supports browser playback and a device pairing simulator. Native TV applications are not yet released; buying a plan will not guarantee compatibility with an unreleased device app. Plan benefits are intended for supported TunelyTV apps when each feature becomes available. <strong>Development status:</strong> DVR, catch-up and Tunely Home remain planned and are unavailable. Multi-View is currently <b>a private browser-testing prototype</b>, not a released subscription feature. Tunely Home/DVR require app development and legal review of recording rights. The backend does <strong>not</strong> yet enforce paid-feature access. No plan includes TV channels, provider subscriptions, streaming licenses, guaranteed catch-up, or guaranteed simultaneous streams. Final benefits, limits, Plus Lifetime conditions and public launch are still pending.</p>
+            <p class="feature-compare-footnote"><strong>What these features mean:</strong> DVR is recording using the planned <b>Tunely Home Windows companion</b> and compatible customer-owned storage—not a cloud recording service. Catch-up means playing past programs <b>only if the user's authorized source actually provides that feature</b>; it is not guaranteed and is not DVR. Multi-View means showing more than one authorized stream on screen; Plus is proposed for 2 panes and Premium/Family for an enhanced layout targeting up to 4 panes. The actual number of simultaneous playable streams remains unconfirmed and subject to source authorization, browser support, and device capacity.<br><br><strong>Approved trial policy (server-enforced in private staging):</strong> One introductory Plus One-Time trial per eligible account. Seven consecutive 24-hour days from the server-recorded activation time; no card collection and no recurring or automatic charge. After expiry, users return to Free with one TV slot and no web, phone, or tablet playback. Saved playlists and account settings remain intact. During the web-only testing period, expired users can manage their accounts but cannot watch until purchasing access or until a compatible Free TV app launches. <br><br><strong>Platform availability:</strong> Current private testing supports browser playback and a device pairing simulator. Native TV applications are not yet released; buying a plan will not guarantee compatibility with an unreleased device app. Plan benefits are intended for supported TunelyTV apps when each feature becomes available. <strong>Development status:</strong> DVR, catch-up and Tunely Home remain planned and are unavailable. Multi-View is currently <b>a private browser-testing prototype</b>, not a released subscription feature. Tunely Home/DVR require app development and legal review of recording rights. The staging backend checks browser-playlist access, Multi-View and TV slot limits; other app integrations remain pending. No plan includes TV channels, provider subscriptions, streaming licenses, guaranteed catch-up, or guaranteed simultaneous streams. Final benefits, limits, Plus One-Time conditions and public launch are still pending.</p>
           </section>
-          <div class="info-strip billing-info"><svg><use href="#i-info"/></svg><span><b>No channels included.</b> Prices are for TunelyTV software only. The v0.8 checkout integration supports <b>Stripe test mode only</b>, with no actual money charged. The approved 7-day Plus free trial is not yet implemented; it will not require Stripe or a credit card and will never automatically charge. Live checkout remains disabled. Production payments, final feature limits, taxes, refunds and lifetime terms require review.</span></div>
+          <div class="info-strip billing-info"><svg><use href="#i-info"/></svg><span><b>No channels included.</b> Prices are for TunelyTV software only. The checkout integration supports <b>Stripe test mode only</b>, with no actual money charged. The 7-day Plus trial is available for eligible private test accounts; it will not require Stripe or a credit card and will never automatically charge. Live checkout remains disabled. Production payments, final feature limits, taxes, refunds and major-version license terms require review.</span></div>
         </section>
 
+        <section class="page" id="page-licenses">
+          <div class="page-heading compact"><div><div class="eyebrow">OWNER · PRIVATE DEVELOPMENT</div><h1>License <span>management.</span></h1><p>Read-only customer, trial, and version-license records. No real purchases or customer data are changed here.</p></div></div>
+          <div class="panel owner-panel">
+            <h3>Customer entitlements</h3>
+            <p id="ownerSummary">Loading owner information…</p>
+            <div class="owner-scroll"><table class="owner-table"><thead><tr><th>Account</th><th>Plan</th><th>Trial</th><th>Plus versions</th><th>TV slots</th></tr></thead><tbody id="ownerUsers"></tbody></table></div>
+            <h3>Recent license activity</h3><div id="ownerAudit" class="owner-audit"></div>
+          </div>
+        </section>
         <section class="page" id="page-settings"><div class="page-heading compact"><div><div class="eyebrow">PERSONALIZATION & SECURITY</div><h1>Account <span>settings.</span></h1><p>Manage your development account and sign-in settings.</p></div></div><div class="settings-grid"><div class="panel settings-panel"><h3>Sign-in methods</h3><p>Google OAuth is prepared in the deployment checklist but cannot be used until credentials, identity verification and account-linking protections are implemented. Email/password is active.</p><div class="setting-row"><div class="google-mark">G</div><div><b>Google Sign-In</b><small>Requires Google Cloud OAuth client &amp; verified account-linking flow</small></div><span class="small-status">Planned</span></div><div class="setting-row"><span class="setting-icon"><svg><use href="#i-lock"/></svg></span><div><b>Email & password</b><small>Email sign-in works; password reset is not yet built</small></div><span class="small-status">Active</span></div></div><div class="panel settings-panel"><h3>Account session</h3><p>Changes are saved in your encrypted staging account database. Sign out on this browser when finished.</p><div class="setting-row"><span class="setting-icon danger"><svg><use href="#i-trash"/></svg></span><div><b>Sign out</b><small>End your browser account session</small></div><button class="btn btn-small btn-danger" id="clearDataBtn">Sign out</button></div></div></div></section>
       </div>
     </main>
@@ -239,5 +272,6 @@
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
   <script src="/static/app.js"></script>
   <script src="/static/billing-v08.js"></script>
+  <script src="/static/license-v096.js"></script>
 </body>
 </html>

@@ -1,0 +1,7 @@
+/* TunelyTV v0.9.4 — zero-setup guide with optional advanced fallback. */
+.epg-advanced-settings{margin-top:13px;background:#0e2032;border:1px solid #29495b;border-radius:12px;overflow:hidden}
+.epg-advanced-settings>summary{cursor:pointer;padding:15px 18px;color:#c8e5eb;font-size:12px;font-weight:750;list-style-position:inside}
+.epg-advanced-settings>summary span{display:block;margin:4px 0 0 20px;font-size:10px;color:#85aabc;font-weight:450}
+.epg-advanced-grid{padding:0 14px 14px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.epg-auto-badge{font-size:10px;color:#48bcff;padding:8px 10px;border-radius:8px;background:#113239;border:1px solid #226466;max-width:310px;line-height:1.4}
+@media(max-width:850px){.epg-advanced-grid{grid-template-columns:1fr}.epg-auto-badge{max-width:220px}}

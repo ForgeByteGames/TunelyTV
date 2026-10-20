@@ -6,7 +6,7 @@ const e = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;'
 const icon = s => `<svg aria-hidden="true"><use href="#i-${s}"/></svg>`;
 const typeNames = {m3u_url:'M3U URL',m3u_file:'M3U file',xtream:'Xtream login'};
 const methodNames = {code:'App pairing code',mac:'MAC address',device_id:'Device ID',ip:'Local IP address'};
-let csrf='', account='', registerMode=false, inviteRequired=false, page='overview', state={sources:[],devices:[]}, toastTimeout;
+let csrf='', account='', registerMode=false, inviteRequired=false, page='overview', state={sources:[],devices:[],lastPlaylistId:null}, toastTimeout;
 function toast(msg,bad=false){const t=$('toast');t.textContent=msg;t.classList.toggle('error',bad);t.classList.add('show');clearTimeout(toastTimeout);toastTimeout=setTimeout(()=>t.classList.remove('show'),4800);}
 function errorMessage(data, status){const d=data?.detail;if(typeof d==='string')return d;if(Array.isArray(d))return d.map(x=>x.msg).join('; ');return `Request failed (${status})`;}
 async function api(route,{method='GET',body,auth=true}={}){
@@ -21,14 +21,14 @@ async function api(route,{method='GET',body,auth=true}={}){
 }
 window.tunelyGetCsrf = () => csrf;
 function lock(){csrf='';account='';document.body.classList.add('auth-locked');}
-async function signInReady(data){csrf=data.csrf_token;account=data.email;$('accountEmail').textContent=account;$('profileAvatar')?.replaceChildren(document.createTextNode(account[0].toUpperCase()));document.body.classList.remove('auth-locked');await refresh();}
+async function signInReady(data){csrf=data.csrf_token;account=data.email;$('accountEmail').textContent=account;$('profileAvatar')?.replaceChildren(document.createTextNode(account[0].toUpperCase()));document.body.classList.remove('auth-locked');await refresh();const requested=new URLSearchParams(location.search).get('section');if(requested&&['overview','sources','devices','guides','billing','settings','licenses'].includes(requested))go(requested);}
 async function init(){try{const config=await api('/public/config');inviteRequired=Boolean(config.invite_required);}catch{}try{const data=await api('/auth/csrf');await signInReady(data);}catch{lock();}}
 $('authSwitch').addEventListener('click',()=>{registerMode=!registerMode;$('authHeading').textContent=registerMode?'Create your account.':'Welcome back.';$('authSubmit').textContent=registerMode?'Create account':'Sign in';$('authSwitch').textContent=registerMode?'Already have an account? Sign in':'New here? Create an account';$('authPassword').autocomplete=registerMode?'new-password':'current-password';$('inviteEntry').hidden=!(registerMode&&inviteRequired);$('authInvite').required=registerMode&&inviteRequired;$('authError').textContent='';});
 $('authForm').addEventListener('submit',async event=>{event.preventDefault();const button=$('authSubmit');button.disabled=true;$('authError').textContent='';try{
  const data=await api(registerMode?'/auth/register':'/auth/login',{method:'POST',auth:false,body:{email:$('authEmail').value,password:$('authPassword').value,...(registerMode?{invite_code:$('authInvite').value}:{})}});
  $('authPassword').value='';await signInReady(data);toast('Account connected. Playlist changes will sync to paired devices.');
  }catch(err){$('authError').textContent=err.message;}finally{button.disabled=false;}});
-async function refresh(){const [a,b]=await Promise.all([api('/playlists'),api('/devices')]);state={sources:a.playlists.map(p=>({...p,date:new Date(p.created_at*1000).toLocaleDateString()})),devices:b.devices.map(d=>({...d,sourceId:d.playlist_id,identifierMasked:d.identifier_mask}))};render();}
+async function refresh(){const [a,b,c]=await Promise.all([api('/playlists'),api('/devices'),api('/player/preferences').catch(()=>({playlist_id:null}))]);state={sources:a.playlists.map(p=>({...p,date:new Date(p.created_at*1000).toLocaleDateString()})),devices:b.devices.map(d=>({...d,sourceId:d.playlist_id,identifierMasked:d.identifier_mask})),lastPlaylistId:c.playlist_id};render();}
 function assignmentName(id){return state.sources.find(s=>s.id===id)?.name || 'No playlist assigned';}
 function empty(iconName,title,caption,button,type,large=false){return `<div class="${large?'full-empty':'empty'}"><div class="empty-icon">${icon(iconName)}</div><h3>${e(title)}</h3><p>${e(caption)}</p><button class="btn ${large?'btn-primary':'btn-secondary'}" data-open="${type}">${icon('plus')}${e(button)}</button></div>`;}
 function playlistRow(p){return `<div class="item-row"><div class="item-symbol">${icon('playlist')}</div><div class="item-row-copy"><b>${e(p.name)}</b><small>${e(typeNames[p.type])} · ${e(p.date)}</small></div><span class="row-badge">Saved</span></div>`;}
@@ -39,6 +39,13 @@ function render(){const {sources,devices}=state, assigned=devices.filter(d=>d.so
  $('navSourceCount').textContent=sources.length;$('navDeviceCount').textContent=devices.length;
  $('statSources').textContent=sources.length;$('statDevices').textContent=devices.length;$('statAssignments').textContent=assigned;
  $('sourceTotal').textContent=sources.length;$('deviceTotal').textContent=devices.length;
+ if($('simplePlaylistName')){
+   const selected=sources.find(p=>p.id===state.lastPlaylistId)||sources[0];
+   $('simplePlaylistName').textContent=selected?selected.name:'No playlist added yet';
+   $('simplePlaylistCount').textContent=sources.length+' playlist'+(sources.length===1?'':'s');
+   $('simpleDeviceCount').textContent=devices.length+' registered';
+   $('simpleWatchStatus').textContent=selected?'Your library is ready. Open Live TV to browse channels.':'Add a playlist to start watching on the web.';
+ }
  const steps=[sources.length>0,devices.length>0,paired>0 && devices.some(d=>d.paired && d.sourceId)];
  $('setupProgress').textContent=`${steps.filter(Boolean).length} of 3 steps`;
  ['stepOne','stepTwo','stepThree'].forEach((id,n)=>{$(id).innerHTML=steps[n]?icon('check'):('0'+(n+1));$(id).classList.toggle('complete',steps[n]);});
@@ -47,7 +54,7 @@ function render(){const {sources,devices}=state, assigned=devices.filter(d=>d.so
  $('sourcesFull').innerHTML=sources.length?`<div class="data-grid">${sources.map(playlistCard).join('')}</div>`:empty('playlist','Your playlist library is empty','Add an authorized M3U URL, M3U file, or provider login.','Add your first playlist','source',true);
  $('devicesFull').innerHTML=devices.length?`<div class="data-grid">${devices.map(deviceCard).join('')}</div>`:empty('tv','No devices added yet','Pair the TunelyTV app simulator, or create a manual device profile.','Pair a TV','pair',true);
 }
-function go(name){if(!$('page-'+name))return;page=name;document.querySelectorAll('.page').forEach(n=>n.classList.toggle('active',n.id==='page-'+name));document.querySelectorAll('.nav-link').forEach(n=>n.classList.toggle('active',n.dataset.page===name));$('breadcrumbCurrent').textContent=({overview:'Overview',sources:'My Playlists',devices:'My Devices',guides:'Setup Guides',billing:'Plan & Billing',settings:'Settings'})[name];$('sidebar').classList.remove('open');$('mobileBackdrop').classList.remove('open');window.scrollTo({top:0,behavior:'instant'});}
+function go(name){if(!$('page-'+name))return;page=name;document.querySelectorAll('.page').forEach(n=>n.classList.toggle('active',n.id==='page-'+name));document.querySelectorAll('.nav-link').forEach(n=>n.classList.toggle('active',n.dataset.page===name));$('breadcrumbCurrent').textContent=({overview:'Overview',sources:'My Playlists',devices:'My Devices',guides:'Setup Guides',billing:'Plan & Billing',settings:'Settings',licenses:'Owner · Licenses'})[name];$('sidebar').classList.remove('open');$('mobileBackdrop').classList.remove('open');window.scrollTo({top:0,behavior:'instant'});}
 function modal(eyebrow,title,html){$('modalEyebrow').textContent=eyebrow;$('modalTitle').textContent=title;$('modalBody').innerHTML=html;$('modalBackdrop').classList.add('open');$('modalBackdrop').setAttribute('aria-hidden','false');document.body.style.overflow='hidden';}
 function close(){ $('modalBackdrop').classList.remove('open');$('modalBackdrop').setAttribute('aria-hidden','true');document.body.style.overflow=''; }
 function sourceModal(){let method='m3u_url';modal('AUTHORIZED SOURCES','Add a playlist',`<div class="method-picker" id="sourceMethods"><button type="button" class="method-btn selected" data-type="m3u_url">${icon('globe')} M3U URL</button><button type="button" class="method-btn" data-type="m3u_file">${icon('upload')} M3U file</button><button type="button" class="method-btn" data-type="xtream">${icon('lock')} Xtream login</button></div><form id="sourceForm"><div class="form-field"><label for="sourceName">Playlist name</label><input id="sourceName" maxlength="60" required placeholder="e.g. My authorized playlist"/></div><div id="sourceDynamic"></div><div class="form-help">${icon('shield')}<span>Only add streams you own or have permission to access. Access details are encrypted before database storage and sent only to the TV app you pair.</span></div><div id="sourceError" class="form-error" role="alert"></div><div class="modal-actions"><button type="button" class="btn btn-secondary" data-close>Cancel</button><button class="btn btn-primary" id="sourceSubmit">${icon('plus')} Save playlist</button></div></form>`);
@@ -77,7 +84,7 @@ $('closeModal').addEventListener('click',close);$('modalBackdrop').addEventListe
 $('mobileMenu').addEventListener('click',()=>{$('sidebar').classList.add('open');$('mobileBackdrop').classList.add('open');});$('mobileBackdrop').addEventListener('click',()=>{$('sidebar').classList.remove('open');$('mobileBackdrop').classList.remove('open');});
 $('clearDataBtn').addEventListener('click',async()=>{try{await api('/auth/logout',{method:'POST'});lock();toast('Signed out.');}catch(err){toast(err.message,true);}});
 // Promote pairing as the main action on overview and devices.
-for(const target of ['page-overview','page-devices']){const pageEl=$(target);const banner=document.createElement('div');banner.className='pair-promo';banner.innerHTML=`<div><h3>📺 Secure TV pairing is ready</h3><p>Link the included TV app simulator in seconds, then automatically sync your authorized playlist.</p></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-primary" data-open="pair">${icon('link')} Enter TV code</button><a class="btn btn-secondary" href="/tv" target="_blank" rel="noopener">${icon('tv')} Open TV simulator ↗</a><a class="btn btn-secondary" href="/watch" target="_blank" rel="noopener">▶ Watch on Web ↗</a></div>`;pageEl.insertBefore(banner,pageEl.children[1]||null);}
+for(const target of ['page-devices']){const pageEl=$(target);const banner=document.createElement('div');banner.className='pair-promo';banner.innerHTML=`<div><h3>📺 Secure TV pairing is ready</h3><p>Link the included TV app simulator in seconds, then automatically sync your authorized playlist.</p></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-primary" data-open="pair">${icon('link')} Enter TV code</button><a class="btn btn-secondary" href="/tv" target="_blank" rel="noopener">${icon('tv')} Open TV simulator ↗</a><a class="btn btn-secondary" href="/watch" target="_blank" rel="noopener">▶ Watch on Web ↗</a></div>`;pageEl.insertBefore(banner,pageEl.children[1]||null);}
 // Refresh every 20 seconds to display pairing state and heartbeat. Runs only while signed in.
 setInterval(()=>{if(!document.body.classList.contains('auth-locked') && document.visibilityState==='visible')refresh().catch(()=>{});},20000);
 init();

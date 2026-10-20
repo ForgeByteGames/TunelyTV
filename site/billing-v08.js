@@ -3,7 +3,7 @@
   'use strict';
   const $ = id => document.getElementById(id);
   if (!$('billingCurrentPlan')) return;
-  const info = {free:'Free',plus:'Plus Lifetime',premium:'Premium',family:'Family'};
+  const info = {free:'Free',plus:'Plus One-Time',premium:'Premium',family:'Family'};
   let billing = null;
   async function jsonApi(path, options={}) {
     const headers = options.method ? {'Content-Type':'application/json','X-CSRF-Token':(window.tunelyGetCsrf?.() || '')} : {};
@@ -20,9 +20,9 @@
       $('billingCurrentPlan').textContent = info[plan] || 'Free';
       if($('dashboardPlan')) $('dashboardPlan').textContent = info[plan] || 'Free';
       if($('profilePlan')) $('profilePlan').textContent = `${info[plan] || 'Free'} · Private staging`;
-      $('billingPlanStatus').textContent = billing.subscription_status ? `Monthly: ${billing.subscription_status}` : billing.plus_lifetime ? 'Lifetime owned' : 'Free account';
+      $('billingPlanStatus').textContent = billing.access_reason==='trial' ? '7-day Plus trial active' : billing.owner_preview ? 'Owner preview' : billing.subscription_status ? `Subscription: ${billing.subscription_status}` : billing.plus_lifetime ? 'One-time license owned' : 'Free account';
       $('billingModeBadge').textContent = billing.stripe_test_enabled ? 'STRIPE TEST MODE ONLY' : 'PAYMENTS NOT CONNECTED';
-      $('billingSummary').textContent = billing.stripe_test_enabled ? 'Test checkout available. Only Stripe test cards can be used; no real purchases.' : 'Your account is ready. Payments are not configured, so your Free plan remains active.';
+      $('billingSummary').textContent = billing.stripe_test_enabled ? 'Test checkout available. Only Stripe test cards can be used; no real purchases.' : 'Stripe checkout is not configured. Your access may come from an active trial or owner preview.';
       const end=billing.current_period_end ? new Date(billing.current_period_end*1000).toLocaleDateString() : null;
       $('billingRenewal').textContent=end ? (billing.cancel_at_period_end ? `Scheduled to end: ${end}` : `Current period ends: ${end}`) : '';
       $('billingManage').disabled=!billing.can_manage_billing;

@@ -1,0 +1,18 @@
+/* Blue TunelyTV licensing panels; interface is not a checkout. */
+.license-status{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:18px 0 24px}
+.license-status>div{background:linear-gradient(145deg,#10263c,#0a1b30);border:1px solid #204669;border-radius:14px;padding:17px;display:flex;flex-direction:column;gap:7px}
+.license-kicker{color:#69bcff;font-size:11px;letter-spacing:.09em;font-weight:700}
+.license-status strong{font-size:19px;color:#eaf6ff}.license-status small{color:#9eb5cc;line-height:1.5}
+.owner-setup{border:1px solid #23588c;background:#0e2740;border-radius:16px;padding:18px;margin:16px 0}
+.owner-setup h3{color:#f7fbff;margin:0 0 8px}.owner-setup p{color:#b5c9dd;font-size:13px}
+.owner-setup-form{display:flex;gap:10px}.owner-setup-form input{min-width:0;flex:1;padding:12px;border-radius:10px;background:#071829;color:#fff;border:1px solid #295273}
+.owner-panel{padding:20px}.owner-panel h3{margin:0 0 12px}.owner-panel h3:not(:first-child){margin-top:24px}
+.owner-scroll{overflow-x:auto}.owner-table{width:100%;border-collapse:collapse;min-width:600px;font-size:13px}
+.owner-table th,.owner-table td{padding:11px 9px;text-align:left;border-bottom:1px solid #233d5b;color:#d5e6f5}
+.owner-table th{color:#88bce4}.owner-audit{display:flex;flex-direction:column;gap:7px}
+.owner-audit-item{font-size:12px;border-bottom:1px solid #243c58;padding:8px 0;color:#bbd3e7}
+body.license-web-locked #video,body.license-web-locked #multiviewPanel{display:none !important}
+body.license-web-locked .direct-panel,body.license-web-locked .local-file-panel{display:none !important}
+@media(max-width:640px){.license-status{grid-template-columns:1fr}.owner-setup-form{flex-direction:column}}
+
+#ownerNav[hidden],#ownerSetup[hidden]{display:none!important}

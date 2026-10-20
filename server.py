@@ -19,11 +19,13 @@ from urllib.parse import urlsplit
 from uuid import uuid4
 
 from billing import install_billing
+from discovery import install_discovery
+from licensing import account_access, install_licensing
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError, VerificationError
 from cryptography.fernet import Fernet
 from fastapi import Cookie, Depends, FastAPI, Header, HTTPException, Request, Response
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, field_validator
 
@@ -62,6 +64,32 @@ def valid_url(raw: str) -> str:
         raise ValueError('Enter an http:// or https:// URL without username:password@.') from None
     return raw
 
+
+
+def extract_m3u_epg_candidates(content: str) -> list[str]:
+    """Read provider-advertised XMLTV URLs from #EXTM3U; never fetch them server-side.
+
+    No guessed guide endpoints or remote third-party catalogue are used. Only the
+    browser will request these links when the signed-in user opens the playlist.
+    """
+    header = next((line.strip().lstrip('\ufeff') for line in content.splitlines()[:12]
+                   if line.strip().lstrip('\ufeff').upper().startswith('#EXTM3U')), '')[:16000]
+    if not header:
+        return []
+    candidates: list[str] = []
+    pattern = r"(?i)(?:^|\s)(x-tvg-url|url-tvg|tvg-url)\s*=\s*([\"'])(.*?)\2"
+    for match in re.finditer(pattern, header):
+        for value in re.split(r'[,;]', match.group(3)):
+            value = value.strip()
+            try:
+                link = valid_url(value)
+            except ValueError:
+                continue
+            if link not in candidates:
+                candidates.append(link)
+            if len(candidates) >= 3:
+                return candidates
+    return candidates
 
 def normalized_identifier(method: str, value: str) -> tuple[str, str]:
     v = value.strip()
@@ -160,6 +188,10 @@ class Claim(BaseModel):
     playlist_id: str | None = None
 
 
+class PlayerPreferenceUpdate(BaseModel):
+    playlist_id: str | None = None
+
+
 def create_app(db_path: str | Path | None = None, key_path: str | Path | None = None) -> FastAPI:
     prod = os.environ.get('TUNELY_ENV', 'development').lower() == 'production'
     configured_key = os.environ.get('TUNELY_FERNET_KEY')
@@ -215,6 +247,10 @@ def create_app(db_path: str | Path | None = None, key_path: str | Path | None = 
               revision INTEGER NOT NULL DEFAULT 1, created_at INTEGER NOT NULL);
             CREATE INDEX IF NOT EXISTS idx_playlists_owner ON playlists(owner_id);
             CREATE INDEX IF NOT EXISTS idx_devices_owner ON devices(owner_id);
+            CREATE TABLE IF NOT EXISTS player_preferences (
+              owner_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+              playlist_id TEXT REFERENCES playlists(id) ON DELETE SET NULL,
+              updated_at INTEGER NOT NULL);
             CREATE TABLE IF NOT EXISTS favorite_channels (
               owner_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
               playlist_id TEXT NOT NULL REFERENCES playlists(id) ON DELETE CASCADE,
@@ -227,7 +263,7 @@ def create_app(db_path: str | Path | None = None, key_path: str | Path | None = 
               PRIMARY KEY (owner_id, playlist_id, channel_key));
             CREATE INDEX IF NOT EXISTS idx_recent_channels ON recent_channels(owner_id, playlist_id, played_at DESC);
         ''')
-    app = FastAPI(title='TunelyTV Web Staging API', version='0.9.0', docs_url=None if prod else '/api/docs', redoc_url=None, openapi_url=None if prod else '/openapi.json')
+    app = FastAPI(title='TunelyTV Web Staging API', version='0.9.6', docs_url=None if prod else '/api/docs', redoc_url=None, openapi_url=None if prod else '/openapi.json')
     app.state.db_path = str(database_path)
     app.state.cipher = cipher
     app.state.production = prod
@@ -297,35 +333,25 @@ def create_app(db_path: str | Path | None = None, key_path: str | Path | None = 
             response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
         return response
 
+    # Install license tables before any request and any billing migrations.
+    # Billing tables are created at module install further down, so run after.
     @app.get('/api/public/config')
     def public_config():
         return {'invite_required': bool(signup_code), 'google_signin_enabled': False, 'google_signin_prepared': True, 'web_preview': True}
 
     @app.get('/api/health')
     def health():
-        return {'status': 'ok', 'service': 'TunelyTV web staging', 'version': '0.9'}
+        return {'status': 'ok', 'service': 'TunelyTV web staging', 'version': '0.9.6'}
 
     @app.get('/api/features/multiview')
     def multiview_access(user=Depends(current_user)):
-        # Account-scoped paid test entitlement; optional explicitly enabled private preview.
         with db() as con:
-            row = con.execute('''SELECT subscription_plan, subscription_status, plus_lifetime
-                                   FROM billing_accounts WHERE user_id=?''',
-                              (user['user_id'],)).fetchone()
-        plan = 'free'
-        if row:
-            if row['subscription_status'] in ('active', 'trialing') and row['subscription_plan'] in ('premium', 'family'):
-                plan = row['subscription_plan']
-            elif row['plus_lifetime']:
-                plan = 'plus'
-        preview = (bool(signup_code) and os.environ.get('TUNELY_MULTIVIEW_PRIVATE_PREVIEW', '').lower() == 'true')
-        max_panes = 4 if plan in ('premium', 'family') else (2 if plan == 'plus' else 0)
-        if preview and max_panes == 0:
-            max_panes = 4
-        return {'plan': plan, 'max_panes': max_panes, 'preview': preview,
-                'feature_live': False,
-                'note': ('Private staging preview; no paid entitlement granted.' if preview else
-                         'Multi-View is available for eligible test plans; trial activation is not implemented.')}
+            access = account_access(con, user['user_id'])
+        # Only a securely bootstrapped owner gets preview access without a purchase.
+        return {'plan': access['plan'], 'max_panes': access['multiview_panes'],
+                'preview': access['owner'], 'feature_live': False,
+                'note': 'Owner-only private testing' if access['owner'] else
+                        'Account entitlement; provider stream limits still apply.'}
 
     @app.post('/api/auth/register', status_code=201)
     def register(inp: Credentials, response: Response, request: Request):
@@ -386,6 +412,25 @@ def create_app(db_path: str | Path | None = None, key_path: str | Path | None = 
         return con.execute('SELECT * FROM devices WHERE id=? AND owner_id=?',
                            (device_id, user_id)).fetchone()
 
+    @app.get('/api/player/preferences')
+    def player_preferences(user=Depends(current_user)):
+        """Last account-selected playlist, never the plaintext playlist contents."""
+        with db() as con:
+            row = con.execute('''SELECT playlist_id FROM player_preferences
+                WHERE owner_id=?''', (user['user_id'],)).fetchone()
+        return {'playlist_id': row['playlist_id'] if row else None}
+
+    @app.patch('/api/player/preferences')
+    def update_player_preferences(inp: PlayerPreferenceUpdate, user=Depends(csrf_user)):
+        with db() as con:
+            if inp.playlist_id and not own_playlist(con, user['user_id'], inp.playlist_id):
+                fail('Playlist not found.', 404)
+            con.execute('''INSERT INTO player_preferences (owner_id, playlist_id, updated_at)
+                VALUES (?, ?, ?) ON CONFLICT(owner_id) DO UPDATE SET
+                playlist_id=excluded.playlist_id, updated_at=excluded.updated_at''',
+                (user['user_id'], inp.playlist_id, now()))
+        return {'playlist_id': inp.playlist_id}
+
     @app.get('/api/playlists')
     def playlists(user=Depends(current_user)):
         with db() as con:
@@ -438,20 +483,24 @@ def create_app(db_path: str | Path | None = None, key_path: str | Path | None = 
         """
         with db() as con:
             row = own_playlist(con, user['user_id'], playlist_id)
-        if not row:
-            fail('Playlist not found.', 404)
+            if not row:
+                fail('Playlist not found.', 404)
+            if not account_access(con, user['user_id'])['web_playback']:
+                fail('Your plan does not include web playback. Start your 7-day Plus trial or choose a paid plan.', 403)
         config = json.loads(cipher.decrypt(row['config_encrypted']).decode())
         if row['type'] == 'xtream':
             return {'id': row['id'], 'name': row['name'], 'type': 'xtream',
                     'supported': False, 'message': 'Xtream browser playback requires a separate, provider-compatible player integration. Credentials are not exposed.'}
         if row['type'] == 'm3u_url':
             return {'id': row['id'], 'name': row['name'], 'type': row['type'],
-                    'supported': True, 'url': config['url'], 'epg_url': config.get('epg_url')}
+                    'supported': True, 'url': config['url'], 'epg_url': config.get('epg_url'),
+                    'epg_candidates': []}
         # Strictly parsed only; do not fetch or proxy arbitrary user-controlled URLs.
         entries = []
         current_name = None
         current_group = 'Other'
         current_tvg_id = ''
+        current_tvg_name = ''
         for line in config['content'].splitlines():
             line = line.strip()
             if line.startswith('#EXTINF:'):
@@ -470,6 +519,7 @@ def create_app(db_path: str | Path | None = None, key_path: str | Path | None = 
                 current_name = line[comma + 1:].strip()[:140] if comma >= 0 else attrs.get('tvg-name', '')[:140]
                 current_group = attrs.get('group-title', 'Other')[:140] or 'Other'
                 current_tvg_id = attrs.get('tvg-id', '')[:140]
+                current_tvg_name = attrs.get('tvg-name', '')[:140]
             elif line and not line.startswith('#'):
                 try:
                     source_url = valid_url(line)
@@ -477,18 +527,21 @@ def create_app(db_path: str | Path | None = None, key_path: str | Path | None = 
                     current_name = None
                     current_group = 'Other'
                     current_tvg_id = ''
+                    current_tvg_name = ''
                     continue
                 if len(entries) >= 5000:
                     break
                 entries.append({'name': current_name or 'Channel ' + str(len(entries) + 1),
                                 'url': source_url,
                                 'group': current_group,
-                                'tvgId': current_tvg_id})
+                                'tvgId': current_tvg_id, 'tvgName': current_tvg_name})
                 current_name = None
                 current_group = 'Other'
                 current_tvg_id = ''
+                current_tvg_name = ''
         return {'id': row['id'], 'name': row['name'], 'type': 'm3u_file',
-                'supported': True, 'channels': entries, 'total': len(entries), 'epg_url': config.get('epg_url')}
+                'supported': True, 'channels': entries, 'total': len(entries), 'epg_url': config.get('epg_url'),
+                'epg_candidates': extract_m3u_epg_candidates(config['content'])}
 
     @app.patch('/api/playlists/{playlist_id}/guide')
     def set_playlist_guide(playlist_id: str, inp: GuideConfig, user=Depends(csrf_user)):
@@ -606,8 +659,11 @@ def create_app(db_path: str | Path | None = None, key_path: str | Path | None = 
         except ValueError as e:
             fail(str(e))
         with db() as con:
-            if con.execute('SELECT count(*) FROM devices WHERE owner_id=?', (user['user_id'],)).fetchone()[0] >= 50:
-                fail('Development limit reached: 50 device profiles.')
+            con.execute('BEGIN IMMEDIATE')
+            registered = con.execute('SELECT count(*) FROM devices WHERE owner_id=?', (user['user_id'],)).fetchone()[0]
+            limit = account_access(con, user['user_id'])['tv_slots']
+            if registered >= limit:
+                fail(f'TV limit reached ({limit} registered). Remove a TV or change plan.', 403)
             if inp.playlist_id and not own_playlist(con, user['user_id'], inp.playlist_id):
                 fail('Playlist not found.', 404)
             d_id = uid()
@@ -685,8 +741,11 @@ def create_app(db_path: str | Path | None = None, key_path: str | Path | None = 
                                   (token_hash(code),)).fetchone()
             if not pending or not pending['code_expires'] or pending['code_expires'] <= now():
                 fail('Invalid or expired pairing code.', 400)
-            if con.execute('SELECT count(*) FROM devices WHERE owner_id=?', (user['user_id'],)).fetchone()[0] >= 50 and not inp.profile_id:
-                fail('Development limit reached: 50 devices.')
+            if not inp.profile_id:
+                used = con.execute('SELECT count(*) FROM devices WHERE owner_id=?', (user['user_id'],)).fetchone()[0]
+                limit = account_access(con, user['user_id'])['tv_slots']
+                if used >= limit:
+                    fail(f'TV limit reached ({limit} registered). Remove a TV or change plan.', 403)
             if inp.playlist_id and not own_playlist(con, user['user_id'], inp.playlist_id):
                 fail('Playlist not found.', 404)
             if inp.profile_id:
@@ -719,6 +778,11 @@ def create_app(db_path: str | Path | None = None, key_path: str | Path | None = 
                 return {'status': 'expired', 'paired': False}
             return {'status': 'pending', 'paired': False}
         with db() as con:
+            slots = account_access(con, d['owner_id'])['tv_slots']
+            assigned = con.execute('''SELECT id FROM devices WHERE owner_id=?
+                ORDER BY created_at, id LIMIT ?''', (d['owner_id'], slots)).fetchall()
+            if d['id'] not in {row['id'] for row in assigned}:
+                fail('This device exceeds the account TV allowance.', 403)
             con.execute('UPDATE devices SET last_seen=? WHERE id=?', (now(), d['id']))
             if d['revision'] <= since:
                 return {'status': 'paired', 'paired': True, 'changed': False,
@@ -733,10 +797,18 @@ def create_app(db_path: str | Path | None = None, key_path: str | Path | None = 
                 'playlist': {'id': playlist['id'], 'name': playlist['name'], **config}}
 
     install_billing(app, db, current_user, csrf_user, fail, throttle, prod)
+    install_licensing(app, db, current_user, csrf_user, fail, throttle, prod)
+    install_discovery(app)
 
     # Serve same-origin browser UI and TV emulator; /api routes registered above.
     @app.get('/')
-    def main_page():
+    def main_page(request: Request):
+        if request.url.hostname == 'stream.tunelytv.com':
+            return RedirectResponse('/watch',status_code=302)
+        return FileResponse(BASE / 'site' / 'home.html')
+
+    @app.get('/account')
+    def account_home():
         return FileResponse(BASE / 'site' / 'index.html')
 
     @app.get('/tv')

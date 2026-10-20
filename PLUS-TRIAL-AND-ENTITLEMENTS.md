@@ -1,3 +1,5 @@
+> **v0.9.6 update:** Parts of this earlier development document describe a prior version. Current implementation details and new Railway instructions are in [V0.9.6-LICENSE-AND-ENTITLEMENTS.md](V0.9.6-LICENSE-AND-ENTITLEMENTS.md).
+
 # TunelyTV — Approved Plus Trial & Device Entitlements (v0.8.4 plan)
 
 **Status:** Pricing and trial policy APPROVED by project owner on 2026-10-20. This file specifies behavior for implementation; v0.8.4 does **not** implement live trial activation or entitlement gates. Do not deploy this as a working paid authorization system or advertise unavailable device apps.

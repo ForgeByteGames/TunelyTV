@@ -18,10 +18,11 @@ from urllib.request import Request as URLRequest, urlopen
 
 from fastapi import Depends, HTTPException, Request
 from pydantic import BaseModel
+from licensing import account_access, award_verified_plus
 
 PLAN_INFO = {
     'free': {'label': 'Free', 'amount_cents': 0, 'interval': None},
-    'plus': {'label': 'Plus Lifetime', 'amount_cents': 1999, 'interval': None},
+    'plus': {'label': 'Plus One-Time', 'amount_cents': 1999, 'interval': None},
     'premium': {'label': 'Premium', 'amount_cents': 499, 'interval': 'month'},
     'family': {'label': 'Family', 'amount_cents': 799, 'interval': 'month'},
 }
@@ -109,10 +110,17 @@ def install_billing(app, db, current_user, csrf_user, fail, throttle, prod: bool
     def billing_status(user=Depends(current_user)):
         with db() as con:
             row = get_billing(con, user['user_id'])
-        plan = entitlement(row)
+            license_state = account_access(con, user['user_id'])
+        plan = license_state['plan']
         return {
             'plan': plan, 'label': PLAN_INFO[plan]['label'],
-            'plus_lifetime': bool(row['plus_lifetime']) if row else False,
+            'access_reason': license_state['access_reason'],
+            'trial_status': license_state['trial_status'],
+            'trial_ends_at': license_state['trial_ends_at'],
+            'owned_plus_majors': license_state['owned_plus_majors'],
+            'current_major': license_state['current_major'],
+            'owner_preview': license_state['owner'],
+            'plus_lifetime': license_state['owns_current_plus'],
             'subscription_status': row['subscription_status'] if row else None,
             'subscription_plan': row['subscription_plan'] if row else None,
             'cancel_at_period_end': bool(row['cancel_at_period_end']) if row else False,
@@ -145,8 +153,10 @@ def install_billing(app, db, current_user, csrf_user, fail, throttle, prod: bool
         require_test_mode()
         with db() as con:
             row = get_billing(con, user['user_id'])
-        if row and inp.plan == 'plus' and row['plus_lifetime']:
-            fail('Plus Lifetime is already owned.', 409)
+        if inp.plan == 'plus':
+            with db() as con:
+                if account_access(con,user['user_id'])['owns_current_plus']:
+                    fail('Plus One-Time is already owned for this major version.', 409)
         if row and row['subscription_status'] in ACTIVE_STATUSES and row['stripe_subscription_id']:
             fail('You already have an active monthly subscription. Manage changes through the billing portal.', 409)
         price_id = prices[inp.plan]
@@ -160,6 +170,9 @@ def install_billing(app, db, current_user, csrf_user, fail, throttle, prod: bool
             'cancel_url': origin + '/?billing=cancel',
             'billing_address_collection': 'auto',
         }
+        if inp.plan == 'plus':
+            from licensing import major_version
+            fields['metadata[license_major]'] = str(major_version())
         if inp.plan in ('premium', 'family'):
             fields['subscription_data[metadata][user_id]'] = user['user_id']
             fields['subscription_data[metadata][plan]'] = inp.plan
@@ -217,6 +230,42 @@ def install_billing(app, db, current_user, csrf_user, fail, throttle, prod: bool
                         if (plan == 'plus' and obj.get('mode') == 'payment' and obj.get('payment_status') == 'paid'
                                 and obj.get('amount_total') == 1999 and obj.get('currency') == 'usd'):
                             con.execute('UPDATE billing_accounts SET plus_lifetime=1 WHERE user_id=?', (uid,))
+                            original_major = (obj.get('metadata') or {}).get('license_major','1')
+                            try:
+                                original_major = int(original_major)
+                            except (ValueError,TypeError):
+                                original_major = 0
+                            if not 1 <= original_major <= 999:
+                                fail('Invalid purchased license metadata.', 400)
+                            award_verified_plus(con, uid, event_id, purchased_major=original_major)
+                            intent=obj.get('payment_intent')
+                            if isinstance(intent,str) and intent.startswith('pi_'):
+                                con.execute('''INSERT OR IGNORE INTO plus_payments
+                                   (payment_intent,user_id,major_version,purchased_at)
+                                   VALUES (?,?,?,?)''',
+                                   (intent,uid,original_major,int(time.time())))
+            elif kind == 'charge.refunded':
+                # Revoke a license ONLY after a signed event for an exact previously
+                # recorded test payment intent and a full refund. No email matching.
+                intent = obj.get('payment_intent')
+                amount = obj.get('amount')
+                refunded = obj.get('amount_refunded')
+                if (isinstance(intent,str) and intent.startswith('pi_') and
+                        isinstance(amount,int) and amount>0 and
+                        isinstance(refunded,int) and refunded>=amount):
+                    item=con.execute('''SELECT * FROM plus_payments
+                         WHERE payment_intent=? AND refunded_at IS NULL''',(intent,)).fetchone()
+                    if item:
+                        con.execute('UPDATE plus_payments SET refunded_at=? WHERE payment_intent=?',
+                                    (int(time.time()),intent))
+                        con.execute('''UPDATE plus_licenses SET revoked_at=?
+                             WHERE user_id=? AND major_version=? AND event_id IS NOT NULL''',
+                                    (int(time.time()),item['user_id'],item['major_version']))
+                        con.execute('''UPDATE billing_accounts SET plus_lifetime=0,updated_at=? WHERE user_id=?''',
+                                    (int(time.time()),item['user_id']))
+                        con.execute('''INSERT INTO license_audit(actor_id,target_id,action,detail,at)
+                             VALUES (NULL,?,'plus_full_refund',?,?)''',
+                                    (item['user_id'],f'Stripe TEST refund {event_id}',int(time.time())))
             elif kind in ('customer.subscription.created', 'customer.subscription.updated', 'customer.subscription.deleted'):
                 meta = obj.get('metadata') or {}
                 uid = meta.get('user_id')

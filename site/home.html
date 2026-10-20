@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<meta name="theme-color" content="#071426"/><meta name="description" content="TunelyTV is a premium media player and discovery platform. Manage authorized sources, discover where to watch films, and enjoy your own playlists on compatible devices."/>
+<meta name="robots" content="noindex,nofollow"/>
+<title>TunelyTV — Discover. Organize. Watch.</title>
+<link rel="icon" type="image/webp" href="/static/tunely-icon.webp"/>
+<link rel="stylesheet" href="/static/home-v095.css"/>
+</head>
+<body>
+<header class="site-head"><div class="head-inner">
+  <a class="wordmark" href="/" aria-label="TunelyTV home"><img src="/static/tunely-icon.webp" width="39" height="39" alt=""/><span>tunely<strong>TV</strong></span></a>
+  <nav class="site-nav" aria-label="Main navigation"><a class="active" href="#top">Home</a><a href="/watch" data-stream-link>Live TV</a><a href="#movies">Movies</a><a href="#series">TV Series</a><a href="#services">Where to Watch</a><a href="#pricing">Plans</a></nav>
+  <div class="header-actions"><button id="openSearch" class="icon-action" type="button" aria-label="Search movies and TV series" title="Search"><svg viewBox="0 0 24 24"><circle cx="10.8" cy="10.8" r="6.7"/><path d="m16 16 5.5 5.5"/></svg></button><a class="account-pill" href="/account">Account <span aria-hidden="true">↗</span></a><button class="mobile-menu" id="navToggle" type="button" aria-label="Open menu" aria-expanded="false">☰</button></div>
+</div></header>
+<main id="top">
+<section class="hero" aria-label="Welcome to TunelyTV">
+ <div class="hero-copy"><div class="eyebrow"><span class="orb"></span> ONE PLATFORM. YOUR SOURCES.</div><h1>Your media.<br><em>Beautifully connected.</em></h1><p>A cleaner way to discover what to watch, organize your authorized sources, and enjoy compatible streams across your devices.</p><div class="hero-actions"><a class="primary-btn" href="/watch" data-stream-link><span aria-hidden="true">▶</span> Watch Live TV</a><a class="secondary-btn" href="#services">Where to Watch <span aria-hidden="true">↗</span></a></div></div>
+ <div class="hero-visual" aria-hidden="true"><div class="hero-orb hero-orb-one"></div><div class="hero-orb hero-orb-two"></div><div class="hero-tv"><div class="tv-bar"><span class="tv-dot"></span> TUNELYTV <span class="tv-live">LIVE GUIDE</span></div><div class="tv-feature"><div class="tv-screen-play">▶</div><div><span class="tv-kicker">WATCH WHAT YOU OWN</span><h3>One place.<br>Every screen.</h3></div></div><div class="tv-row"><span>01　My Channels</span><b></b><b></b><b></b></div><div class="tv-row"><span>02　Your Favorites</span><b></b><b></b><b></b></div><div class="tv-row"><span>03　Up Next</span><b></b><b></b><b></b></div></div></div>
+</section>
+<section class="content-section categories" aria-labelledby="categoriesTitle"><div class="section-title"><div><h2 id="categoriesTitle">Live TV categories</h2><p>Browse categories from your own authorized playlists.</p></div><a href="/watch" data-stream-link>Open guide <span aria-hidden="true">›</span></a></div><div class="category-grid" id="categoryGrid">
+ <a href="/watch" data-stream-link class="category-card all"><span class="category-icon">▦</span><b>All Channels</b></a>
+ <a href="/watch" data-stream-link class="category-card sports"><span class="category-icon">◉</span><b>Sports</b></a>
+ <a href="/watch" data-stream-link class="category-card news"><span class="category-icon">▤</span><b>News</b></a>
+ <a href="/watch" data-stream-link class="category-card entertain"><span class="category-icon">▣</span><b>Entertainment</b></a>
+ <a href="/watch" data-stream-link class="category-card kids"><span class="category-icon">◇</span><b>Kids</b></a>
+ <a href="/watch" data-stream-link class="category-card movies"><span class="category-icon">▷</span><b>Movies</b></a>
+ <a href="/watch" data-stream-link class="category-card doc"><span class="category-icon">◈</span><b>Documentary</b></a>
+ <a href="/watch" data-stream-link class="category-card world"><span class="category-icon">◎</span><b>International</b></a>
+ </div></section>
+<section class="content-section" id="movies" aria-labelledby="moviesTitle"><div class="section-title"><div><h2 id="moviesTitle">Trending movies</h2><p>Discover films and find legitimate viewing options.</p></div><button type="button" class="text-link" data-show-all="movies">View all <span aria-hidden="true">›</span></button></div><div class="rail" id="movieRail" aria-live="polite"><div class="rail-loading">Loading discovery titles…</div></div></section>
+<section class="content-section" id="series" aria-labelledby="seriesTitle"><div class="section-title"><div><h2 id="seriesTitle">Popular TV series</h2><p>Find your next series on the services you use.</p></div><button type="button" class="text-link" data-show-all="series">View all <span aria-hidden="true">›</span></button></div><div class="rail" id="seriesRail" aria-live="polite"><div class="rail-loading">Loading discovery titles…</div></div></section>
+<section class="content-section" id="services" aria-labelledby="servicesTitle"><div class="section-title"><div><h2 id="servicesTitle">Explore by streaming service</h2><p>Discover independently available titles. Availability depends on country and provider.</p></div><button class="text-link" type="button" id="serviceHelp">How it works <span aria-hidden="true">›</span></button></div><div class="service-list" aria-label="Streaming service filters" id="servicePills"></div><div class="service-row-head"><span id="serviceRowTitle">Explore on Netflix</span><span id="serviceRowLabel">External service discovery</span></div><div class="rail" id="serviceRail" aria-live="polite"><div class="rail-loading">Choose a service to see availability.</div></div><p class="service-footnote">Streaming services are independent. TunelyTV does not include their subscriptions or programming. Artwork and metadata require appropriate usage rights.</p></section>
+<section class="pricing" id="pricing"><div class="section-title"><div><h2>Simple TunelyTV plans</h2><p>Software access, not channels or third-party streaming subscriptions.</p></div><a href="/account?section=billing">Full plan details <span aria-hidden="true">›</span></a></div><div class="plan-grid">
+ <article class="plan"><span class="plan-label">FREE</span><div class="price">$0</div><p>1 registered TV. No web, phone, or tablet playback.</p></article>
+ <article class="plan plan-plus"><span class="plan-label">PLUS ONE-TIME</span><div class="price">$19.99 <small>once</small></div><p>7-day trial for eligible test accounts • no card • no automatic charges. Plus includes web and mobile access.</p></article>
+ <article class="plan"><span class="plan-label">PREMIUM</span><div class="price">$4.99 <small>/ mo</small></div><p>Advanced features and planned Tunely Home companion access.</p></article>
+ <article class="plan"><span class="plan-label">FAMILY</span><div class="price">$7.99 <small>/ mo</small></div><p>Household features and planned Tunely Home companion access.</p></article>
+ </div><p class="plan-disclaimer">Private testing: 7-day trial and key entitlement rules are active; billing, native apps, recording, and catch-up remain unavailable. See the full plan comparison before purchase.</p></section>
+</main>
+<footer class="site-footer"><div><a class="wordmark small" href="/"><img src="/static/tunely-icon.webp" alt="" width="28" height="28"/>tunely<strong>TV</strong></a><p>Your media, your way. TunelyTV supplies software, not streaming channels.</p></div><div class="footer-links"><a href="/account?section=sources">Manage sources</a><a href="/account?section=devices">Devices</a><a href="/account?section=billing">Plans</a><a href="/watch" data-stream-link>Live TV</a></div></footer>
+<div class="dialog-layer" id="searchDialog" role="dialog" aria-modal="true" aria-labelledby="dialogTitle" hidden><div class="dialog-box"><div class="dialog-head"><h2 id="dialogTitle">Search movies &amp; TV series</h2><button type="button" class="dialog-close" data-close aria-label="Close search">✕</button></div><form id="searchForm" class="search-form"><input id="searchQuery" autocomplete="off" placeholder="Try The Accountant" aria-label="Movie or TV show title" minlength="2" required/><button type="submit" class="primary-btn">Search</button></form><p class="dialog-message" id="searchMessage">Look up a title to explore legal streaming providers.</p><div id="searchResults" class="result-list"></div></div></div>
+<div class="dialog-layer" id="detailDialog" role="dialog" aria-modal="true" aria-labelledby="detailTitle" hidden><div class="dialog-box"><div class="dialog-head"><h2 id="detailTitle">Title details</h2><button type="button" class="dialog-close" data-close aria-label="Close details">✕</button></div><div id="detailBody" class="detail-body"></div></div></div>
+<script src="/static/home-v095.js" defer></script>
+</body></html>

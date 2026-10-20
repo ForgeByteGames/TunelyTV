@@ -6,27 +6,33 @@
 <meta name="theme-color" content="#080f1c">
 <meta name="robots" content="noindex,nofollow">
 <meta name="description" content="TunelyTV private web player for user-provided authorized streams.">
-<title>TunelyTV — Live TV + Multi-View v0.9.1</title>
+<title>TunelyTV — Live TV v0.9.6</title>
 <link rel="stylesheet" href="/static/watch.css">
 <link rel="stylesheet" href="/static/epg-grid.css">
 <link rel="stylesheet" href="/static/watch-v07.css">
 <link rel="stylesheet" href="/static/multiview.css">
+<link rel="stylesheet" href="/static/streamlined-v092.css">
+<link rel="stylesheet" href="/static/guide-focus-v093.css">
+<link rel="stylesheet" href="/static/auto-epg-v094.css">
+<link rel="stylesheet" href="/static/blue-shell-v095.css">
+<link rel="stylesheet" href="/static/license-v096.css">
 </head>
-<body>
+<body class="tv-mode-v095">
 <div class="app-shell">
+  <div id="channelBackdrop" class="channel-backdrop" hidden></div>
   <aside class="sidebar" id="channelBrowser" aria-label="Channel browser">
     <div class="sidebar-top">
-      <a class="brand" href="/" aria-label="TunelyTV dashboard"><span class="brand-icon"><span class="brand-triangle"></span><span class="brand-dot"></span></span><span>tunely<b>TV</b></span></a>
-      <span class="version">WEB PLAYER v0.9.1 <span class="status-dot"></span> BETA</span>
+      <a class="brand" href="/" aria-label="TunelyTV home"><span class="brand-icon"><span class="brand-triangle"></span><span class="brand-dot"></span></span><span>tunely<b>TV</b></span></a>
+      <span class="version">Live TV · Private test</span><button type="button" id="closeMobileChannels" class="close-mobile-channels" aria-label="Close channels">✕</button>
     </div>
     <div class="source-area">
-      <div class="section-label"><span>YOUR LIBRARY</span><a href="/">Manage <span aria-hidden="true">↗</span></a></div>
+      <div class="section-label"><span>YOUR LIBRARY</span><a href="/account?section=sources">Manage <span aria-hidden="true">↗</span></a></div>
       <label class="control-label" for="sourcePick">Playlist</label>
       <select id="sourcePick" aria-label="Choose your playlist"><option value="">Loading playlists…</option></select>
       <p class="source-note" id="sourceStatus">Sign in to load saved playlists.</p><p class="source-note sync-status" id="syncStatus" role="status">Local preferences until signed in.</p>
     </div>
     <div class="channel-area">
-      <div class="channel-heading"><h2>Channels <span id="channelCount" class="counter">0</span></h2><button id="clearPrefs" type="button" class="text-button" title="Clear favorites and recent channels for this playlist">Clear preferences</button></div>
+      <div class="channel-heading"><h2>Channels <span id="channelCount" class="counter">0</span></h2><button id="clearPrefs" type="button" class="text-button" title="Clear favorites and recent channels for this playlist">Reset</button></div>
       <div class="search"><span aria-hidden="true">⌕</span><input type="search" id="filter" placeholder="Search channels" aria-label="Search channels" autocomplete="off"><kbd>/</kbd></div>
       <div class="quick-tabs" role="group" aria-label="Channel filter"><button type="button" class="quick active" data-filter="all" aria-pressed="true">All channels</button><button type="button" class="quick" data-filter="favorites" aria-pressed="false">♡ Favorites <span id="favCount">0</span></button><button type="button" class="quick" data-filter="recent" aria-pressed="false">◷ Recent</button></div>
       <label class="sr-only" for="categoryPick">Filter by category</label>
@@ -36,13 +42,13 @@
     <footer class="sidebar-footer"><span aria-hidden="true">♧</span><p><b>Your sources. Your choice.</b><br> No channels or subscriptions included. Only use content you are authorized to access.</p></footer>
   </aside>
   <main class="main">
-    <header class="topbar"><div class="breadcrumb"><span class="wordmark-small">TUNELY<span>TV</span></span><span class="slash">/</span><strong>Watch Live</strong><span class="stage-tag">PRIVATE TEST</span></div><nav><a href="/" class="nav-link">▦ <span>Dashboard</span></a><a href="/tv" class="nav-link pair-link">▣ <span>Pair Devices</span></a><button id="browseButton" class="nav-link browse-button" type="button">☷ Channels</button></nav></header>
+    <header class="topbar tv-top"><a href="/" class="tv-top-brand"><img src="/static/tunely-icon.webp" alt=""/><span>tunely<b>TV</b></span></a><nav aria-label="Live TV navigation"><button type="button" id="guideTopButton" class="nav-link guide-top-button">Guide</button><button type="button" id="browseButton" class="nav-link browse-button">Channels</button><a class="nav-link tv-setup-link" href="/account?section=sources">Settings</a><a class="nav-link tv-home-link" href="/">Home</a></nav></header>
     <div class="page">
-      <div class="page-header"><div><div class="eyebrow"><span class="status-dot"></span> YOUR PERSONAL STREAMING SPACE</div><h1>Live TV<span class="title-period">.</span></h1><p class="subtitle">Enjoy your own authorized channels, all in one place.</p></div><div class="top-pills"><span class="top-pill">◈ Browser player</span><span class="top-pill">▦ Timeline EPG</span></div></div>
+      <div class="page-header"><div><h1>Live TV<span class="title-period">.</span></h1></div></div>
       <section id="playerCard" class="player-card" aria-label="Live TV video player">
         <div class="video-area" id="videoArea">
           <video id="video" controls playsinline preload="none" hidden aria-label="Video playback"></video>
-          <div class="player-empty" id="placeholder"><div class="ambient ambient-1"></div><div class="ambient ambient-2"></div><div class="hero-mark"><span class="hero-triangle"></span></div><span class="empty-eyebrow">WELCOME TO YOUR PLAYER</span><h2>Ready to <span>tune in?</span></h2><p>Choose an authorized channel from your playlist to start watching.</p><button class="empty-browse" id="emptyBrowse" type="button">Browse channels <span aria-hidden="true">→</span></button></div>
+          <div class="player-empty" id="placeholder"><div class="ambient ambient-1"></div><div class="ambient ambient-2"></div><div class="hero-mark"><span class="hero-triangle"></span></div><h2>Choose a channel</h2><p>Your most recent playlist loads automatically.</p><button class="empty-browse" id="emptyBrowse" type="button">Open TV Guide <span aria-hidden="true">→</span></button></div>
           <div class="player-chip" id="streamChip"><span class="on-air-dot"></span><span>LIVE PLAYER</span></div>
           <aside class="mini-guide" id="miniGuide" hidden aria-label="Quick channel guide">
             <div class="mini-guide-head"><div><strong>Quick guide</strong><small>Browse without stopping playback</small></div><button type="button" id="closeMiniGuide" aria-label="Close quick guide">✕</button></div>
@@ -50,7 +56,7 @@
             <div id="miniChannelList" class="mini-channel-list"></div>
           </aside>
         </div>
-        <div class="player-toolbar"><div class="nowplaying"><span class="onair"><i></i> LIVE</span><div class="nowplaying-text"><strong id="playingName">Select a channel</strong><span id="playingStatus">No stream selected</span></div></div><div class="toolbar-actions"><button type="button" id="prevChannel" class="icon-button" aria-label="Previous channel" title="Previous channel (Arrow Up)">‹</button><button type="button" id="nextChannel" class="icon-button" aria-label="Next channel" title="Next channel (Arrow Down)">›</button><button type="button" id="multiviewBtn" class="icon-button multiview-launch" aria-label="Open Multi-View" title="Watch 2 or 4 channels">▦ <span>Multi-View</span></button><button type="button" id="miniGuideBtn" class="icon-button guide-button" aria-label="Open quick guide" aria-expanded="false" title="Quick guide (G)">▤ <span>Guide</span></button><button type="button" id="muteBtn" class="icon-button" aria-label="Mute video" title="Mute (M)">♫</button><button type="button" id="pipBtn" class="icon-button" aria-label="Picture in picture" title="Picture in picture">▣</button><button type="button" id="settingsBtn" class="icon-button" aria-label="Player settings" aria-expanded="false" title="Player settings">⚙</button><button type="button" id="currentFavorite" class="icon-button" aria-label="Add playing channel to favorites" title="Toggle favorite" disabled>♡</button><button type="button" id="fullscreen" class="icon-button" aria-label="Fullscreen video" title="Fullscreen video">⛶</button><button type="button" id="stopBtn" class="stop-button" title="Stop video">■ <span>Stop</span></button></div></div>
+        <div class="player-toolbar"><div class="nowplaying"><span class="onair"><i></i> LIVE</span><div class="nowplaying-text"><strong id="playingName">Select a channel</strong><span id="playingStatus">No stream selected</span></div></div><div class="toolbar-actions"><button type="button" id="prevChannel" class="icon-button" aria-label="Previous channel" title="Previous channel (Arrow Up)">‹</button><button type="button" id="nextChannel" class="icon-button" aria-label="Next channel" title="Next channel (Arrow Down)">›</button><button type="button" id="multiviewBtn" class="icon-button multiview-launch" aria-label="Open Multi-View" title="Watch 2 or 4 channels">▦ <span>Multi-View</span></button><button type="button" id="theaterGuideBtn" class="icon-button focus-guide-button" aria-haspopup="dialog" title="Open the full-screen TV guide (G)">▤ <span>TV Guide</span></button><button type="button" id="miniGuideBtn" class="icon-button mini-guide-launch" aria-label="Open quick guide" aria-expanded="false" title="Quick guide">▤ <span>Mini</span></button><button type="button" id="muteBtn" class="icon-button" aria-label="Mute video" title="Mute (M)">♫</button><button type="button" id="pipBtn" class="icon-button" aria-label="Picture in picture" title="Picture in picture">▣</button><button type="button" id="settingsBtn" class="icon-button" aria-label="Player settings" aria-expanded="false" title="Player settings">⚙</button><button type="button" id="currentFavorite" class="icon-button" aria-label="Add playing channel to favorites" title="Toggle favorite" disabled>♡</button><button type="button" id="fullscreen" class="icon-button" aria-label="Fullscreen video" title="Fullscreen video">⛶</button><button type="button" id="stopBtn" class="stop-button" title="Stop video">■ <span>Stop</span></button></div></div>
         <div id="playerSettings" class="player-settings" hidden aria-label="Playback settings">
           <div class="settings-title">Playback settings <button id="closeSettings" type="button" aria-label="Close settings">✕</button></div>
           <label for="qualityPick">Quality</label><select id="qualityPick" aria-label="Stream quality"><option value="auto">Auto / Source default</option></select>
@@ -59,20 +65,28 @@
           <p>Options appear only when a stream and your browser provide them. Keyboard: G guide · M mute · F fullscreen · ↑/↓ channels.</p>
         </div>
       </section>
-      <section id="multiviewPanel" class="multiview-panel" hidden aria-label="Multi-View live television">
-  <div class="mv-header"><div><div class="mv-kicker">◈ MULTI-VIEW <span>PRIVATE TEST</span></div><h2>Watch your way<span class="title-period">.</span></h2><p>Play authorized channels side by side. Audio plays from one screen at a time.</p></div>
-    <div class="mv-layout-buttons" role="group" aria-label="Screen layout"><button id="mvTwo" type="button" class="mv-layout is-active" aria-pressed="true">▣ 2 screens</button><button id="mvFour" type="button" class="mv-layout" aria-pressed="false">▦ 4 screens</button><button id="mvFullscreen" type="button" class="mv-theater-fullscreen" aria-pressed="false" title="Use browser fullscreen">⛶ Fullscreen</button><button id="mvExit" type="button" class="mv-exit">✕ Exit Multi-View</button></div>
-  </div>
-  <div class="mv-message" id="mvAccess" role="status" aria-live="polite">Checking Multi-View availability…</div>
-  <div class="mv-grid" id="mvGrid" aria-label="Multiple channel players"></div>
-  <div class="mv-bottom"><div id="mvStatus" role="status" aria-live="polite">Choose channels from your own playlist.</div><button id="mvStopAll" type="button">■ Stop all</button></div>
-  <p class="mv-disclaimer">Multi-View uses separate direct browser connections to your authorized streaming provider. Each screen may count as one provider connection; simultaneous-stream rights, device performance, HTTPS, CORS and codec support vary. TunelyTV does not include channels or bypass provider restrictions.</p>
-</section>
+      <section id="multiviewPanel" class="multiview-panel" hidden tabindex="-1" aria-label="Immersive Multi-View live television" role="dialog" aria-modal="true">
+        <div class="mv-header">
+          <div class="mv-header-left"><div class="mv-logo" aria-hidden="true">▶</div><div><div class="mv-kicker">TUNELYTV <span>PRIVATE TEST</span></div><h2>Multi-View <span class="title-period">LIVE</span></h2></div></div>
+          <div class="mv-layout-buttons" role="group" aria-label="Multi-View screen layout">
+            <button id="mvTwo" type="button" class="mv-layout is-active" aria-pressed="true">▣ 2 screens</button>
+            <button id="mvFour" type="button" class="mv-layout" aria-pressed="false">▦ 4 screens</button>
+            <button id="mvFullscreen" type="button" aria-label="Enter browser fullscreen" aria-pressed="false" title="Browser fullscreen">⛶ <span class="mv-fullscreen-label">Fullscreen</span></button>
+            <button id="mvExit" type="button" class="mv-exit">✕ Exit</button>
+          </div>
+        </div>
+        <div class="mv-message" id="mvAccess" role="status" aria-live="polite">Checking Multi-View availability…</div>
+        <div class="mv-grid" id="mvGrid" aria-label="Multiple channel players"></div>
+        <div class="mv-bottom">
+          <div id="mvStatus" role="status" aria-live="polite">Choose channels from your own playlist.</div>
+          <div class="mv-bottom-controls"><details class="mv-legal-details"><summary>Source limits</summary><p class="mv-disclaimer">Multi-View opens separate direct browser connections to your authorized provider. Each screen may count as a provider connection. Playback depends on rights, HTTPS/CORS, codecs and device performance; no channels or bypass tools are included.</p></details><button id="mvStopAll" type="button">■ Stop all</button></div>
+        </div>
+      </section>
 <section class="below-player" aria-label="Channel information and guide">
         <div class="tabs" role="tablist" aria-label="Player content"><button class="tab active" type="button" data-tab="guide" role="tab" aria-selected="true" aria-controls="panel-guide">▤ &nbsp;TV Guide</button><button class="tab" type="button" data-tab="about" role="tab" aria-selected="false" aria-controls="panel-about">◷ &nbsp;Now &amp; Next</button><button class="tab" type="button" data-tab="setup" role="tab" aria-selected="false" aria-controls="panel-setup">⚙ &nbsp;Add a source</button></div>
         <div id="panel-guide" class="tab-panel active" role="tabpanel" aria-label="Live television guide">
           <div class="pane-head"><div><h2>TV Guide</h2><p>Explore your channels on a timeline. Listings appear only from an authorized XMLTV source.</p></div><div class="guide-time" id="guideClock">—</div></div>
-          <div class="guide-tools">
+          <div class="guide-tools"><span class="epg-auto-badge" id="epgAutoBadge" role="status">Guide: checking playlist…</span>
             <div class="guide-views" role="group" aria-label="Guide display"><button type="button" class="guide-view active" id="gridViewBtn" data-guide-view="grid" aria-pressed="true" aria-controls="guideGrid">▦ Grid guide</button><button type="button" class="guide-view" id="listViewBtn" data-guide-view="list" aria-pressed="false" aria-controls="guideList">☷ List guide</button></div>
             <div class="guide-navigation" aria-label="Timeline navigation"><button type="button" id="guidePrev" class="guide-nav" aria-label="Previous 90 minutes">‹ <span>Earlier</span></button><button type="button" id="guideNow" class="guide-nav guide-now">● Now</button><button type="button" id="guideNext" class="guide-nav" aria-label="Next 90 minutes"><span>Later</span> ›</button></div>
           </div>
@@ -81,28 +95,46 @@
           <div class="guide-list" id="guideList" hidden></div>
           <div class="epg-detail" id="epgDetails" hidden aria-live="polite"></div>
         </div>
-        <div id="panel-about" class="tab-panel" role="tabpanel" hidden><div class="pane-head"><div><h2>Now &amp; Next</h2><p id="aboutChannel">Select a channel to see its schedule.</p></div></div><div class="program-cards" id="programCards"><div class="guide-empty"><b>No channel selected</b><p>Select a channel and, optionally, load XMLTV program data.</p></div></div></div>
+        <div id="panel-about" class="tab-panel" role="tabpanel" hidden><div class="pane-head"><div><h2>Now &amp; Next</h2><p id="aboutChannel">Select a channel to see its schedule.</p></div></div><div class="program-cards" id="programCards"><div class="guide-empty"><b>No channel selected</b><p>Choose a channel. TunelyTV tries provider-supplied guide data automatically.</p></div></div></div>
         <div id="panel-setup" class="tab-panel" role="tabpanel" hidden><div class="pane-head"><div><h2>Add a Source</h2><p>Use an authorized playlist or a compatible direct stream.</p></div></div>
           <div class="setup-grid">
             <div class="setup-box"><div class="setup-icon">↥</div><h3>Open local M3U file</h3><p>Load a playlist from your device for this session. File contents are not uploaded to TunelyTV.</p><label class="permission local-permission"><input type="checkbox" id="localAuthorized"><span>I have permission to access this playlist.</span></label><label class="file-label" for="localM3u">Choose M3U file <span>→</span></label><input type="file" accept=".m3u,.m3u8,audio/x-mpegurl,application/x-mpegurl" id="localM3u" class="sr-only"></div>
-            <div class="setup-box"><div class="setup-icon">▤</div><h3>Load an XMLTV guide</h3><p>Optional guide file from a source you're authorized to use. Parsed locally, never uploaded.</p><label class="file-label" for="xmltvFile">Choose XMLTV file <span>→</span></label><input type="file" accept=".xml,.xmltv,application/xml,text/xml" id="xmltvFile" class="sr-only"><span class="setup-subtle" id="epgStatus">No guide selected</span></div>
-            <div class="setup-box guide-url-box"><div class="setup-icon">◷</div><h3>Automatic EPG refresh</h3><p>Load authorized XMLTV directly from your provider's HTTPS URL. Refresh every 60 minutes while the player tab is open. Requires browser CORS access. Save the URL encrypted to a signed-in playlist if desired.</p>
+          </div>
+          <details class="epg-advanced-settings"><summary>Advanced TV guide setup <span>Only needed if automatic EPG is unavailable</span></summary>
+            <div class="epg-advanced-grid">
+            <div class="setup-box"><div class="setup-icon">▤</div><h3>Use an XMLTV file</h3><p>Optional fallback: import a licensed XMLTV file when your playlist doesn't advertise a usable guide.</p><label class="file-label" for="xmltvFile">Choose XMLTV file <span>→</span></label><input type="file" accept=".xml,.xmltv,application/xml,text/xml" id="xmltvFile" class="sr-only"><span class="setup-subtle" id="epgStatus">Guide detection is automatic</span></div>
+            <div class="setup-box guide-url-box"><div class="setup-icon">◷</div><h3>Advanced: manual EPG override</h3><p>TunelyTV first looks for XMLTV URLs advertised by your M3U playlist. If none works, you can load authorized XMLTV directly from your provider's HTTPS URL. Refresh every 60 minutes while the player tab is open. Requires browser CORS access. Save the URL encrypted to a signed-in playlist if desired.</p>
               <label for="epgUrl" class="control-label">XMLTV guide URL</label><input type="url" id="epgUrl" placeholder="https://provider.example/guide.xml" autocomplete="off" spellcheck="false">
               <label class="permission"><input id="epgAuthorized" type="checkbox"> I have permission to access this guide.</label>
               <div class="guide-url-buttons"><button type="button" id="loadEpgUrl">Load &amp; auto-refresh</button><button type="button" id="saveEpgUrl" disabled>Save for playlist</button><button type="button" id="removeEpgUrl" disabled>Remove saved URL</button></div>
-              <span class="setup-subtle" id="epgRefreshStatus">Not configured</span>
+              <span class="setup-subtle" id="epgRefreshStatus">Automatic EPG detects playlist-provided guide links</span>
             </div>
-          </div>
+            </div>
+          </details>
           <form id="directForm" class="direct-panel"><div><h3>Test a direct stream</h3><p>Use an HTTPS HLS (.m3u8) or browser-supported media URL. This player cannot bypass provider restrictions.</p></div><label class="sr-only" for="directUrl">Direct media URL</label><div class="direct-controls"><input id="directUrl" type="url" placeholder="https://your-provider.example/live.m3u8" autocomplete="off" required><button type="submit">▶ Play stream</button></div><label class="permission"><input type="checkbox" id="authorized"><span>I confirm I have permission to access this stream.</span></label></form>
         </div>
       </section>
       <div class="notice" id="notice" role="status" aria-live="polite">Playback requires a permitted source, browser-supported codecs, and provider HTTPS/CORS access. TunelyTV does not proxy, restream, or supply channels.</div>
-      <footer class="page-footer"><span>© TunelyTV · Private staging</span><span>Account playlists sync favorites and recents to your profile · local playlists stay on this browser · <a href="/">Manage playlists</a></span></footer>
+      <footer class="page-footer"><span>© TunelyTV · Private staging</span><span>Account playlists sync favorites and recents to your profile · local playlists stay on this browser · <a href="/account?section=sources">Manage sources</a></span></footer>
     </div>
   </main>
 </div>
+<section id="theaterGuide" class="theater-guide" role="dialog" aria-modal="true" aria-label="Full-screen television guide" hidden tabindex="-1">
+  <header class="gf-bar">
+    <div class="gf-brand"><span class="gf-icon" aria-hidden="true">▶</span><strong>tunely<span>TV</span></strong><small>GUIDE</small></div>
+    <div class="gf-bar-actions"><button type="button" id="gfWatch" class="gf-watch">▶ Watch TV</button><button type="button" id="gfClose" class="gf-close" aria-label="Close TV guide">✕ <span>Close</span></button></div>
+  </header>
+  <div class="gf-details" aria-live="polite">
+    <div class="gf-art" aria-hidden="true"><span class="gf-art-play">▶</span><span>YOUR GUIDE</span></div>
+    <div class="gf-copy"><div class="gf-eyebrow" id="gfLabel">YOUR TV GUIDE</div><h2 id="gfTitle">Select a channel</h2><div class="gf-meta"><span id="gfChannel">Choose a channel below</span><span id="gfTiming"></span></div><p id="gfDesc">Browse channels in the guide without scrolling past the video player. Listings come only from an authorized XMLTV source.</p><div class="gf-progress" id="gfProgress" hidden><span id="gfProgressFill"></span></div></div>
+  </div>
+  <div class="gf-controls"><div class="gf-source-group"><label class="sr-only" for="gfSource">Playlist</label><select id="gfSource" aria-label="Choose playlist"><option>Loading playlist…</option></select><label class="sr-only" for="gfSearch">Search channels</label><input id="gfSearch" type="search" autocomplete="off" placeholder="⌕ Search channels" aria-label="Search channels"></div><div class="gf-control-buttons"><button type="button" id="gfFavorite" aria-pressed="false">♡ Favorites</button><button type="button" id="gfEarlier">‹ Earlier</button><button type="button" id="gfNow" class="gf-active">● Now</button><button type="button" id="gfLater">Later ›</button></div></div>
+  <div id="gfViewport" class="gf-viewport" aria-label="Channel schedule"></div>
+  <footer class="gf-footer"><span id="gfStatus">Select a channel to watch. No channels or programs are supplied by TunelyTV.</span><span>↑↓ Browse · / Search · G or Esc Close</span></footer>
+</section>
 <script src="https://cdn.jsdelivr.net/npm/hls.js@1.7.3/dist/hls.min.js" defer></script>
 <script src="/static/watch.js" defer></script>
 <script src="/static/multiview.js" defer></script>
+<script src="/static/guide-focus-v093.js" defer></script>
 </body>
 </html>

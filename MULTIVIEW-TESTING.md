@@ -1,8 +1,10 @@
-# TunelyTV v0.9 — Multi-View testing notes
+> **v0.9.6 update:** Parts of this earlier development document describe a prior version. Current implementation details and new Railway instructions are in [V0.9.6-LICENSE-AND-ENTITLEMENTS.md](V0.9.6-LICENSE-AND-ENTITLEMENTS.md).
+
+# TunelyTV v0.9.1 — Multi-View testing notes
 
 ## Included
 - Toolbar **▦ Multi-View** button, 2-pane and 4-pane layouts, independent channel choices, video controls, switchable single active audio source, Stop All and Exit.
-- Responsive browser layouts on desktop and phone.
+- Full-viewport immersive browser layouts on desktop and phone, with an optional browser fullscreen toggle, compact per-screen channel/audio/stop controls, and no page chrome while viewing.
 - Signed-in plan lookup: Free = 0 panes, Plus Lifetime = 2, Premium/Family = 4 in TEST billing state. Private invitation-only staging may enable `TUNELY_MULTIVIEW_PRIVATE_PREVIEW=true` to show a 4-pane preview even when no Stripe test plan exists.
 - Each pane opens user-supplied streams **directly in the viewer's browser**; HLS.js used when available. No content proxies, provider circumvention, channel bundles, recording, or stored extra source credentials.
 
@@ -25,6 +27,3 @@ Open `TunelyTV-Live-TV-v0.9-MultiView-Preview.html` in a capable browser. Choose
 ## Automated testing
 - `PYTHONPATH=. python -m pytest -q tests` includes per-account Multi-View access checks.
 - Desktop/mobile Chromium tests used isolated interface fixtures with non-working sample URLs, not real content.
-
-
-**v0.9.1 viewport theater checks:** Open Multi-View to verify the screen-filling grid with hidden navigation, switch between 2 and 4 screens, toggle browser fullscreen, and confirm Exit destroys all panes and restores the regular watch page. Test portrait phone stacking and landscape 2x2.

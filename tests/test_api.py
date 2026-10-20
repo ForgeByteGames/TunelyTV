@@ -14,6 +14,11 @@ def register(client,email='first@example.com'):
     return {'X-CSRF-Token':r.json()['csrf_token']}
 
 
+def enable_web(client, headers):
+    response=client.post('/api/license/trial/start',headers=headers)
+    assert response.status_code==201,response.text
+
+
 def playlist(client,h,name='Source A',**kw):
     config={'name':name,'type':'m3u_url','url':'https://secure.example.org/private.m3u?token=S3CRET'}
     config.update(kw)
@@ -111,6 +116,7 @@ def test_csrf_expiry_validation_and_passwords(tmp_path):
 def test_owner_scoped_web_playback_config_and_parsing(tmp_path):
     a=setup(tmp_path)
     h=register(a)
+    enable_web(a,h)
     uploaded=playlist(a,h,name='Own uploaded list', type='m3u_file', filename='own.m3u',
        content='#EXTM3U\n#EXTINF:-1 tvg-id="a",Licensed Demo\nhttps://licensed.example/live/a.m3u8\n#EXTINF:-1,Skip local file\nfile:///etc/passwd\n#EXTINF:-1,Second stream\nhttps://licensed.example/live/b.m3u8\n')
     r=a.get('/api/playlists/'+uploaded+'/playable')
@@ -151,6 +157,7 @@ def test_invite_only_signup_in_staging(tmp_path,monkeypatch):
 def test_xmltv_matching_fields_preserved_from_uploaded_m3u(tmp_path):
     client=setup(tmp_path)
     headers=register(client)
+    enable_web(client,headers)
     uploaded=playlist(client,headers,name='Curated playlist',type='m3u_file',filename='own.m3u',
         content='#EXTM3U\n#EXTINF:-1 tvg-id="my.demo" group-title="Local, News",Station One\nhttps://licensed.example/live/a.m3u8\n'
                 '#EXTINF:-1 group-title="Sports",Station Two\nhttps://licensed.example/live/b.m3u8\n')
@@ -206,6 +213,7 @@ def test_v07_cloud_preferences_owner_scope_persistence_and_clear(tmp_path):
 def test_v07_encrypted_epg_guide_url_and_no_remote_fetch(tmp_path, monkeypatch):
     c = setup(tmp_path)
     h = register(c)
+    enable_web(c,h)
     playlist_id = playlist(c, h)
     secret_url = 'https://licensed.example/epg.xml?private-token=THIS_MUST_NOT_LEAK'
     route = '/api/playlists/' + playlist_id + '/guide'

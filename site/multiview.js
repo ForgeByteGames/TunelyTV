@@ -1,4 +1,4 @@
-// TunelyTV v0.9.1 — direct-source, browser-based Multi-View.
+// TunelyTV v0.9.1 — immersive full-viewport direct-source Multi-View.
 // No bundled streams, stream relay, credential capture, or access-control bypass.
 (() => {
   'use strict';
@@ -12,6 +12,7 @@
   const local = window.location.protocol === 'file:';
   let active = false, limit = 0, count = 2, audioPane = 0, access = null;
   let paneControllers = [];
+  let returnFocus = null;
 
   function setStatus(s) { status.textContent = s; }
   function textNode(tag, cls, value) {
@@ -43,12 +44,14 @@
     p.title.textContent = 'Choose a channel';
     p.name.textContent = 'Select a channel below';
     p.select.value = '';
+    p.root.classList.remove('is-choosing');
   }
   function updateAudio() {
     paneControllers.forEach((p, i) => {
       p.video.muted = i !== audioPane;
       p.audio.classList.toggle('is-selected', i === audioPane);
-      p.audio.textContent = i === audioPane ? '♫ Audio active' : '♩ Listen here';
+      p.audio.querySelector('.mv-action-label').textContent = i === audioPane ? 'Audio active' : 'Listen here';
+      p.audio.setAttribute('title', i === audioPane ? 'Audio active' : 'Listen here');
       p.audio.setAttribute('aria-pressed', String(i === audioPane));
       p.audio.setAttribute('aria-label', 'Select audio from screen ' + (i + 1));
     });
@@ -75,12 +78,23 @@
     const select = document.createElement('select');select.setAttribute('aria-label','Choose channel for screen '+(index+1));
     select.append(new Option('Select channel…',''));
     const row=textNode('div','mv-pane-actions','');
-    const audio=textNode('button','mv-audio','♩ Listen here');audio.type='button';
-    const stop=textNode('button','mv-stop','■ Stop');stop.type='button';
-    row.append(audio,stop);ctl.append(name,select,row);root.append(frame,ctl);
-    const p={root,video,empty,indicator,title,name,select,audio,stop,hls:null,current:null,ticket:0};
+    function actionButton(cls, symbol, description) {
+      const b=document.createElement('button');b.type='button';b.className=cls;
+      b.append(textNode('span','mv-action-icon',symbol),textNode('span','mv-action-label',description));
+      b.setAttribute('title',description); b.setAttribute('aria-label',description+' — screen '+(index+1));
+      return b;
+    }
+    const pick=actionButton('mv-pick','☷','Channels');
+    const audio=actionButton('mv-audio','♫','Listen here');
+    const stop=actionButton('mv-stop','■','Stop');
+    row.append(pick,audio,stop);ctl.append(name,select,row);root.append(frame,ctl);
+    const p={root,video,empty,indicator,title,name,select,pick,audio,stop,hls:null,current:null,ticket:0};
+    const showPicker=()=>{root.classList.toggle('is-choosing');if(root.classList.contains('is-choosing'))select.focus();};
+    pick.addEventListener('click',showPicker);
+    empty.addEventListener('click',showPicker);
     select.addEventListener('change', () => {
       if (select.value === '') { dispose(p); return; }
+      root.classList.remove('is-choosing');
       const chosen=bridge.getChannels()[Number(select.value)];
       if (chosen) tune(p, chosen);
     });
@@ -180,7 +194,6 @@
     const previous=bridge.getCurrent?.();
     bridge.stopMain();
     active=true;
-    document.body.classList.add('mv-is-open');
     byId('playerCard').hidden=true;
     main.hidden=false;
     byId('mvFour').disabled=limit<4;
@@ -189,34 +202,42 @@
       'Plan: '+String(access.plan||'unknown').toUpperCase()+' · Up to '+limit+' screens. Provider connection limits still apply.';
     renderLayout(2);
     if(previous && paneControllers[0])tune(paneControllers[0],previous);
-    byId('mvExit').focus();
+    returnFocus=document.activeElement;
+    document.body.classList.add('mv-immersive-open');
+    main.focus({preventScroll:true});
   }
   function close(){
     if(!active)return;
     paneControllers.forEach(dispose);paneControllers=[];
     grid.replaceChildren();active=false;
-    document.body.classList.remove('mv-is-open');
-    if(document.fullscreenElement===main)document.exitFullscreen().catch(()=>{});
     main.hidden=true;byId('playerCard').hidden=false;
-    access=null;limit=0;
+    document.body.classList.remove('mv-immersive-open');
+    if(document.fullscreenElement === main && document.exitFullscreen) document.exitFullscreen().catch(()=>{});
+    if(returnFocus && returnFocus.focus) returnFocus.focus({preventScroll:true});
+    returnFocus=null;access=null;limit=0;
     setStatus('Multi-View stopped.');
   }
   window.TunelyMultiView={close,isActive:()=>active};
   byId('multiviewBtn').addEventListener('click',open);
-  const fsButton=byId('mvFullscreen');
-  const updateFs=()=>{const isFs=document.fullscreenElement===main;fsButton.textContent=isFs?'⇲ Windowed':'⛶ Fullscreen';fsButton.setAttribute('aria-pressed',String(isFs));};
-  fsButton.addEventListener('click',async()=>{
-    try{
-      if(document.fullscreenElement===main)await document.exitFullscreen();
-      else if(main.requestFullscreen)await main.requestFullscreen();
-      else setStatus('Native fullscreen is not supported by this browser. Multi-View already fills the window.');
-    }catch(e){setStatus('Fullscreen request blocked. Multi-View already fills the window.');}
-    updateFs();
-  });
-  document.addEventListener('fullscreenchange',updateFs);
   byId('mvExit').addEventListener('click',close);
   byId('mvStopAll').addEventListener('click',()=>{paneControllers.forEach(dispose);setStatus('All screens stopped.');});
   byId('mvTwo').addEventListener('click',()=>renderLayout(2));
   byId('mvFour').addEventListener('click',()=>renderLayout(4));
-  document.addEventListener('keydown',ev=>{if(active&&ev.key==='Escape')close();});
+  const fsButton=byId('mvFullscreen');
+  fsButton.addEventListener('click',async()=>{
+    if(!active) return;
+    try {
+      if(document.fullscreenElement===main) await document.exitFullscreen();
+      else if(main.requestFullscreen) await main.requestFullscreen();
+      else setStatus('Immersive view is already active. Browser fullscreen is unavailable here.');
+    } catch { setStatus('Immersive view is active; your browser did not allow native fullscreen.'); }
+  });
+  document.addEventListener('fullscreenchange',()=>{
+    const fs=document.fullscreenElement===main;
+    fsButton.setAttribute('aria-pressed',String(fs));
+    fsButton.setAttribute('aria-label',fs?'Exit browser fullscreen':'Enter browser fullscreen');
+    const label=fsButton.querySelector('.mv-fullscreen-label');
+    if(label) label.textContent=fs?'Windowed':'Fullscreen';
+  });
+  document.addEventListener('keydown',ev=>{if(active&&ev.key==='Escape' && document.fullscreenElement !== main) close();});
 })();

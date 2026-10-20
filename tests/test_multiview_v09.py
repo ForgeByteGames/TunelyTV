@@ -25,35 +25,32 @@ def test_multiview_rejects_unauth_and_free_has_no_access(tmp_path,monkeypatch):
 
 
 def test_test_paid_entitlements_and_expiration(tmp_path,monkeypatch):
-    monkeypatch.delenv('TUNELY_MULTIVIEW_PRIVATE_PREVIEW',raising=False)
     client=app_client(tmp_path)
-    login(client,'subscriber@example.org')
-    with sqlite3.connect(tmp_path/'multi.sqlite') as con:
-        uid=con.execute("SELECT id FROM users WHERE email='subscriber@example.org'").fetchone()[0]
-        con.execute('INSERT INTO billing_accounts(user_id,plus_lifetime,updated_at) VALUES(?,?,?)',(uid,1,1))
+    response=client.post('/api/auth/register',json={'email':'subscriber@example.org','password':'StrongPassword_2026!'})
+    csrf={'X-CSRF-Token':response.json()['csrf_token']}
+    assert client.post('/api/license/trial/start',headers=csrf).status_code==201
     assert client.get('/api/features/multiview').json()['max_panes']==2
     with sqlite3.connect(tmp_path/'multi.sqlite') as con:
-        con.execute("UPDATE billing_accounts SET subscription_plan='premium', subscription_status='active' WHERE user_id=?",(uid,))
+        uid=con.execute("SELECT id FROM users WHERE email='subscriber@example.org'").fetchone()[0]
+        con.execute('INSERT INTO billing_accounts(user_id,subscription_plan,subscription_status,updated_at) VALUES (?,?,?,?)', (uid,'premium','active',1))
     assert client.get('/api/features/multiview').json()['max_panes']==4
     with sqlite3.connect(tmp_path/'multi.sqlite') as con:
-        con.execute("UPDATE billing_accounts SET subscription_plan='family', subscription_status='active' WHERE user_id=?",(uid,))
+        con.execute("UPDATE billing_accounts SET subscription_plan='family' WHERE user_id=?",(uid,))
     assert client.get('/api/features/multiview').json()['plan']=='family'
     with sqlite3.connect(tmp_path/'multi.sqlite') as con:
-        con.execute("UPDATE billing_accounts SET subscription_status='canceled',plus_lifetime=0 WHERE user_id=?",(uid,))
+        con.execute("UPDATE billing_accounts SET subscription_status='canceled' WHERE user_id=?",(uid,))
+        con.execute('UPDATE plus_trials SET ends_at=2, started_at=1 WHERE user_id=?',(uid,))
     assert client.get('/api/features/multiview').json()['max_panes']==0
 
 
-def test_preview_only_with_invite_code(tmp_path,monkeypatch):
+def test_global_preview_flag_does_not_unlock_invited_users(tmp_path,monkeypatch):
     monkeypatch.setenv('TUNELY_MULTIVIEW_PRIVATE_PREVIEW','true')
-    monkeypatch.delenv('TUNELY_SIGNUP_CODE',raising=False)
-    no_invite=app_client(tmp_path/'noinvite')
-    assert login(no_invite,'trial1@example.org').json()['max_panes']==0
     monkeypatch.setenv('TUNELY_SIGNUP_CODE','my-private-staging-code')
     invited=app_client(tmp_path/'invited')
     r=invited.post('/api/auth/register',json={'email':'private@example.org','password':'StrongPassword_2026!','invite_code':'my-private-staging-code'})
     assert r.status_code==201
     result=invited.get('/api/features/multiview').json()
-    assert result['max_panes']==4 and result['preview'] is True and result['feature_live'] is False
+    assert result['max_panes']==0 and result['preview'] is False
 
 
 def test_source_contains_multiview_and_no_bundled_media(tmp_path):

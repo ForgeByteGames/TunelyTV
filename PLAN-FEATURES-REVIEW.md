@@ -1,3 +1,5 @@
+> **v0.9.6 update:** Parts of this earlier development document describe a prior version. Current implementation details and new Railway instructions are in [V0.9.6-LICENSE-AND-ENTITLEMENTS.md](V0.9.6-LICENSE-AND-ENTITLEMENTS.md).
+
 # TunelyTV v0.8.4 — Pricing, Trial & Feature Allocation (current plan)
 
 **Status:** The 7-day Plus Lifetime trial rules and the TV-only Free restrictions are approved for future implementation. The stage app is NOT enforcing these access rules yet. All listed paid features are proposals until implemented and confirmed. See `PLUS-TRIAL-AND-ENTITLEMENTS.md` for backend requirements.

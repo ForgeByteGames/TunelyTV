@@ -1,13 +1,25 @@
-# TunelyTV v0.9.1 deployment — Railway trial
+> **v0.9.6 update:** Parts of this earlier development document describe a prior version. Current implementation details and new Railway instructions are in [V0.9.6-LICENSE-AND-ENTITLEMENTS.md](V0.9.6-LICENSE-AND-ENTITLEMENTS.md).
 
-**This package has not been deployed. Use the full v0.9.1 ZIP in preference to older 0.7 ZIPs.**
+## v0.9.4 upgrade
+
+Commit the extracted ZIP contents to your EXISTING `ForgeByteGames/TunelyTV` repository and redeploy the existing Railway service. Retain `/app/instance` volume and existing environment variables. Do not create another service. No new variables required. See `V0.9.4-AUTOMATIC-EPG.md` for browser and provider limits.
+
+## v0.9.3 deployment update
+
+If v0.9.1 is already running on Railway, **update the same connected GitHub repo/service**. Preserve the same project, `tunelytv-volume` and `/app/instance` mount, encryption key, signup code, and any existing playlists. Do not overwrite or delete your Railway volume. There is no schema migration for this interface-only guide change. After deploying, hard-refresh `/watch` and use TV Guide in the header. This upgrade does NOT resolve the separate Multi-View `preview:false` issue or activate the Plus trial.
+
+Multi-View v0.9.1 adds immersive, viewport-filling playback UI; no new Railway environment variables are required. First GitHub upload should contain this release rather than v0.9. Preserve existing staging secret and volume setup.
+
+# TunelyTV v0.9 deployment — Railway trial
+
+**This package has not been deployed. Use the full v0.9 ZIP in preference to older 0.7 ZIPs.**
 
 ## A. GitHub
 
 1. Open your **private** GitHub repository `ForgeByteGames/TunelyTV` from a computer.
-2. Unzip the v0.9.1 package and upload the **contents** of the extracted directory (not the ZIP file itself). Keep `site/` and `tests/` folder paths and root files exactly as included.
+2. Unzip the v0.9 package and upload the **contents** of the extracted directory (not the ZIP file itself). Keep `site/` and `tests/` folder paths and root files exactly as included.
 3. Check GitHub carefully: never commit `.env`, credentials, local database/keys, or actual user playlists. Use the included `.gitignore`.
-4. Commit `Initial TunelyTV v0.9.1 staging`.
+4. Commit `Initial TunelyTV v0.9 staging`.
 
 ## B. Railway
 
@@ -50,7 +62,7 @@ The plan comparison labels staging features versus proposed benefits. The Multi-
 ### v0.8.2 pricing information
 The pricing screen includes explicit inclusion/exclusion statuses for DVR, provider catch-up, Tunely Home and Multi-View; DVR, catch-up and Tunely Home are still only proposals. Multi-View has a **private web prototype**, but is not publicly released. Do not advertise them as active subscriptions or accept live payments before implementation, entitlement enforcement, and legal review.
 
-### v0.9.1 Multi-View private staging
+### v0.9 Multi-View private staging
 
 The signed-in web player has a **▦ Multi-View** button in the toolbar. To try 2/4 panes without Stripe on an **invite-only private test environment**, set an optional variable:
 
@@ -62,7 +74,4 @@ Without that flag, `GET /api/features/multiview` requires an authenticated accou
 
 Open `/watch` → import an authorized M3U → select **Multi-View** → choose 2 or 4 screens and one channel per pane. Select **Listen here** for the single audio stream. Test with a source explicitly permitting concurrent browser streams. Verify all media stops after **Exit** or **Stop all**.
 
-The standalone v0.9.1 preview can be opened without Railway; it accepts user-supplied local M3U files and shows test layouts. It does not grant production access.
-
-
-The v0.9.1 Multi-View theater takes over the viewport and supports optional browser Fullscreen API. No infrastructure changes are required from v0.9.
+The standalone v0.9 preview can be opened without Railway; it accepts user-supplied local M3U files and shows test layouts. It does not grant production access.

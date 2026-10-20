@@ -1,0 +1,80 @@
+/* TunelyTV v0.9.5: one blue identity, no green/mint call-to-action styling. */
+:root{--teal:#188cff!important;--cyan:#00cfff!important;--blue:#087cff!important;--navy:#071426!important}
+/* Account management is separate from the discovery home and Live TV viewer. */
+body.account-v095 .app-shell{display:block;min-height:100dvh;background:#071426}
+body.account-v095 .sidebar{height:68px;min-height:68px;width:100%;max-width:none;position:sticky;top:0;z-index:50;display:flex;flex-direction:row;align-items:center;justify-content:space-between;flex-basis:auto;background:#081427;border-right:0;border-bottom:1px solid #243953;padding:0 max(20px,3vw);gap:20px}
+body.account-v095 .brand-wrap{margin:0!important;flex:0 0 auto;padding:0!important;height:auto!important}
+body.account-v095 .brand-name span{color:#1b9aff!important}
+body.account-v095 .brand-name small{display:none}
+body.account-v095 .brand-mark{background:linear-gradient(125deg,#00cfff,#087cff)!important}
+body.account-v095 .workspace-label,body.account-v095 .sidebar-help,body.account-v095 .sidebar-bottom,body.account-v095 .sidebar-spacer,body.account-v095 .nav-divider,body.account-v095 .nav-subheading,body.account-v095 .optional-guide{display:none!important}
+body.account-v095 .sidebar .nav{display:flex;flex:1;gap:5px;flex-direction:row;align-items:center;justify-content:flex-end;padding:0!important;margin:0;max-height:none!important;overflow-x:auto;scrollbar-width:none}
+body.account-v095 .sidebar .nav .nav-link{margin:0;flex:0 0 auto;min-height:38px;display:inline-flex;align-items:center;gap:5px;border-radius:9px;font-size:12px;padding:10px 11px;color:#b3c9e2;border:1px solid transparent;background:transparent}
+body.account-v095 .sidebar .nav .nav-link:hover,body.account-v095 .sidebar .nav .nav-link.active{color:#effaff;background:#15355b;border-color:#215eab}
+body.account-v095 .sidebar .nav .nav-link svg,body.account-v095 .sidebar .nav .nav-count{display:none!important}
+body.account-v095 .main{width:100%;min-width:0;background:radial-gradient(ellipse at 90% -20%,#13377f53,transparent 55%),#071426}
+body.account-v095 .topbar{display:none!important}
+body.account-v095 .content{max-width:1440px;margin:0 auto;padding:25px 3% 45px}
+body.account-v095 .page-heading h1 span,body.account-v095 .simple-home-header h2 span{color:#158fff!important}
+body.account-v095 .btn-primary{background:linear-gradient(110deg,#087cff,#115bdc)!important;color:#fff!important;border-color:#238fff!important}
+body.account-v095 .nav-link.active{border-color:#286ee1!important}
+body.account-v095 .overview-banner{display:none}
+body.account-v095 .sidebar-help{display:none}
+body.account-v095 .page .eyebrow{color:#82beff!important}
+body.account-v095 .simple-watch{background:linear-gradient(115deg,#087cff,#145fe2)!important;color:#fff!important}
+body.account-v095 .auth-logo span{color:#168dff!important}
+/* TV mode: player plus Guide, Multi-View and Fullscreen. Keep original hidden DOM
+   in place so existing playback, guide and cloud code continues to work. */
+body.tv-mode-v095{height:100dvh;overflow:hidden;background:#050a12}
+body.tv-mode-v095 .app-shell{min-height:0;height:100dvh;display:block}
+body.tv-mode-v095 #channelBrowser{position:fixed!important;left:-200vw!important;visibility:hidden!important;pointer-events:none!important;opacity:0!important}
+body.tv-mode-v095 .channel-backdrop{display:none!important}
+body.tv-mode-v095 .main{width:100%;height:100dvh;background:#050c19}
+body.tv-mode-v095 .tv-top{height:60px;padding:0 23px;background:#071426;border-bottom:1px solid #1f3550;position:relative;z-index:10}
+body.tv-mode-v095 .tv-top-brand{display:flex;gap:10px;align-items:center;color:#f0f7ff;font-size:20px;font-weight:850;letter-spacing:-.7px;text-decoration:none}
+body.tv-mode-v095 .tv-top-brand img{width:37px;height:37px;border-radius:9px}
+body.tv-mode-v095 .tv-top-brand b{color:#138dff}
+body.tv-mode-v095 .tv-top nav{display:flex;align-items:center;gap:8px}
+body.tv-mode-v095 .tv-top .nav-link{border:1px solid #294968;background:#122840;border-radius:9px;color:#d7e9ff;padding:9px 15px;display:inline-flex;align-items:center;justify-content:center;font-weight:750;font-size:12px;min-height:38px}
+body.tv-mode-v095 .tv-top .guide-top-button{color:#95cdff!important;border-color:#306bba!important}
+body.tv-mode-v095 .tv-top .browse-button{display:none!important}
+body.tv-mode-v095 .tv-top .tv-setup-link{display:none!important}
+body.tv-mode-v095 .page{max-width:none;display:flex;flex-direction:column;height:calc(100dvh - 60px);min-height:0;padding:10px 13px 13px;margin:0}
+body.tv-mode-v095 .page-header,body.tv-mode-v095 .below-player,body.tv-mode-v095 .notice,body.tv-mode-v095 .page-footer{display:none!important}
+body.tv-mode-v095 .player-card{display:flex;flex-direction:column;flex:1;min-height:0;height:100%;max-width:none;margin:0;border-radius:13px;border:1px solid #1b375e;background:#060e1d;box-shadow:none}
+body.tv-mode-v095 .video-area{min-height:0;aspect-ratio:auto;flex:1;position:relative}
+body.tv-mode-v095 .video-area video{width:100%;height:100%;object-fit:contain}
+body.tv-mode-v095 .player-empty{padding:16px}
+body.tv-mode-v095 .player-empty .ambient{opacity:.32}
+body.tv-mode-v095 .hero-mark{background:linear-gradient(135deg,#00cfff,#087cff 65%,#1645e8);box-shadow:0 9px 40px #087cff47}
+body.tv-mode-v095 .player-empty h2{font-size:clamp(22px,3vw,32px)}
+body.tv-mode-v095 .player-empty h2 span{color:#218efc!important}
+body.tv-mode-v095 .player-chip{top:14px;left:16px;background:#0c1b30d9;border-color:#294568}
+body.tv-mode-v095 .player-toolbar{flex:0 0 auto;min-height:61px;padding:10px 16px;background:#0c1a2f;gap:10px}
+body.tv-mode-v095 .nowplaying{min-width:0;flex:1}
+body.tv-mode-v095 .onair{color:#87c4ff;background:#153763;border-color:#2765a9}
+body.tv-mode-v095 .onair i{background:#218fff}
+body.tv-mode-v095 .toolbar-actions{gap:7px;flex-wrap:nowrap}
+body.tv-mode-v095 #prevChannel,body.tv-mode-v095 #nextChannel,body.tv-mode-v095 #miniGuideBtn,body.tv-mode-v095 #muteBtn,body.tv-mode-v095 #pipBtn,body.tv-mode-v095 #settingsBtn,body.tv-mode-v095 #currentFavorite,body.tv-mode-v095 #stopBtn{display:none!important}
+body.tv-mode-v095 .toolbar-actions .icon-button{font-size:13px;font-weight:750;border-radius:9px;min-height:38px;min-width:43px}
+body.tv-mode-v095 #theaterGuideBtn,body.tv-mode-v095 #multiviewBtn{background:#142f52!important;border-color:#2c6fbe!important;color:#9cd6ff!important;padding:8px 15px}
+body.tv-mode-v095 #fullscreen{border-color:#317acb;color:#cbe8ff;padding:7px 15px;font-size:20px}
+body.tv-mode-v095 .theater-guide{background:#061223}
+body.tv-mode-v095 .gf-brand strong span{color:#188eff}
+body.tv-mode-v095 .gf-watch{border-color:#2c8dff!important;color:#fff!important;background:#0a7dff!important}
+body.tv-mode-v095 .gf-details{background:radial-gradient(ellipse at 82% 44%,#133868,#081a36 49%,#071322)}
+body.tv-mode-v095 .gf-art{background:linear-gradient(130deg,#133d73,#08162f)!important;border-color:#24538a!important}
+body.tv-mode-v095 .gf-art-play{background:linear-gradient(130deg,#00cfff,#087cff)!important}
+body.tv-mode-v095 .gf-eyebrow{color:#73bfff!important}
+body.tv-mode-v095 .gf-progress span{background:#087cff!important}
+body.tv-mode-v095 .gf-controls #gfSource{display:none!important}
+body.tv-mode-v095 .gf-controls #gfSearch{width:min(310px,100%)}
+body.tv-mode-v095 .gf-controls .gf-active,body.tv-mode-v095 .gf-controls .is-selected{background:#153e73!important;border-color:#2b8cff!important;color:#add9ff!important}
+body.tv-mode-v095 .gf-viewport .epg-row.tuned{background:#123a6e!important}
+body.tv-mode-v095 .gf-viewport .epg-program.on-now{background:#1a4d83!important;border-color:#338cff!important}
+body.tv-mode-v095 #multiviewPanel .mv-layout.is-active{border-color:#268aff!important;color:#acd7ff!important;background:#123a6a!important}
+@media(max-width:760px){body.account-v095 .sidebar{padding:0 9px;gap:6px;height:63px;min-height:63px}body.account-v095 .brand-wrap{display:none!important}body.account-v095 .sidebar .nav{justify-content:flex-start}body.account-v095 .sidebar .nav .nav-link{padding:10px;font-size:11px}body.account-v095 .content{padding:15px}body.tv-mode-v095 .tv-top{height:53px;padding:0 11px}body.tv-mode-v095 .page{height:calc(100dvh - 53px);padding:5px}body.tv-mode-v095 .tv-top-brand{font-size:16px}body.tv-mode-v095 .tv-top-brand img{width:30px;height:30px}body.tv-mode-v095 .tv-top .tv-home-link{display:none}body.tv-mode-v095 .player-toolbar{padding:7px 8px;gap:5px}body.tv-mode-v095 .nowplaying-text span{display:none}body.tv-mode-v095 .nowplaying-text strong{font-size:11px}body.tv-mode-v095 #theaterGuideBtn,body.tv-mode-v095 #multiviewBtn{font-size:11px;padding:6px 9px}body.tv-mode-v095 .toolbar-actions{gap:4px}body.tv-mode-v095 .player-chip{font-size:8px}}
+
+body.account-v095.auth-locked .app-shell{display:none!important}
+
+body.tv-mode-v095 .tv-top #guideTopButton{display:none!important}

@@ -9,7 +9,7 @@
   const tabs = [...document.querySelectorAll('[data-tab]')];
   const quicks = [...document.querySelectorAll('[data-filter]')];
   const localPreview = location.protocol === 'file:';
-  const state = { sources: [], channels: [], current: null, sourceId: '', filter: 'all', category: 'all', favorites: new Set(), recent: [], programs: new Map(), guideChannels: new Map(), hls: null, requestId: 0, localEntries: [], guideView: 'grid', guideStart: Math.floor(Date.now()/1800000)*1800000, gridLimit: 120, loggedIn:false, prefsSerial:0, guideUrl:'', guideSaveId:'', lastEpgRefresh:0, cloudReady:false, activeDetail:null };
+  const state = { sources: [], channels: [], current: null, sourceId: '', filter: 'all', category: 'all', favorites: new Set(), recent: [], programs: new Map(), guideChannels: new Map(), hls: null, requestId: 0, localEntries: [], guideView: 'grid', guideStart: Math.floor(Date.now()/1800000)*1800000, gridLimit: 120, loggedIn:false, webPermitted:localPreview, prefsSerial:0, guideUrl:'', guideSaveId:'', lastEpgRefresh:0, detectedGuideUrls:[], localGuideUrls:[], epgOrigin:'none', cloudReady:false, activeDetail:null };
 
   const warning = 'Playback requires HTTPS, provider browser/CORS permission, and a compatible codec. TunelyTV does not supply, proxy, or restream any content.';
   const setNotice = (text, kind='') => { const n=$('notice'); n.textContent=text; n.className='notice'+(kind?' '+kind:''); };
@@ -73,8 +73,31 @@
     document.querySelectorAll('.tab-panel').forEach(p=>{const show=p.id==='panel-'+which;p.hidden=!show;p.classList.toggle('active',show);});
   }
   tabs.forEach(t=>t.addEventListener('click',()=>setTab(t.dataset.tab)));
-  function scrollBrowser(){ $('channelBrowser').scrollIntoView({behavior:'smooth',block:'start'}); }
-  $('browseButton').addEventListener('click',scrollBrowser);$('emptyBrowse').addEventListener('click',scrollBrowser);
+  const mobileChannels=()=>window.matchMedia('(max-width: 790px)').matches;
+  function closeMobileChannels(){
+    $('channelBrowser').classList.remove('drawer-open');
+    $('channelBackdrop').hidden=true;
+    $('browseButton').setAttribute('aria-expanded','false');
+  }
+  function scrollBrowser(){
+    if(mobileChannels()){
+      $('channelBrowser').classList.add('drawer-open');
+      $('channelBackdrop').hidden=false;
+      $('browseButton').setAttribute('aria-expanded','true');
+      $('filter').focus({preventScroll:true});
+    }else $('channelBrowser').scrollIntoView({behavior:'smooth',block:'start'});
+  }
+  $('browseButton').setAttribute('aria-expanded','false');
+  $('browseButton').setAttribute('aria-controls','channelBrowser');
+  $('browseButton').addEventListener('click',()=>{
+    if(mobileChannels()&&$('channelBrowser').classList.contains('drawer-open'))closeMobileChannels();
+    else scrollBrowser();
+  });
+  $('emptyBrowse').addEventListener('click',()=>window.TunelyGuideFocus?.open());
+  $('closeMobileChannels').addEventListener('click',closeMobileChannels);
+  $('channelBackdrop').addEventListener('click',closeMobileChannels);
+  window.addEventListener('resize',()=>{if(!mobileChannels())closeMobileChannels();});
+  document.addEventListener('keydown',event=>{if(event.key==='Escape')closeMobileChannels();});
   const showSetup = () => {setTab('setup');document.querySelector('.below-player').scrollIntoView({behavior:'smooth',block:'start'});};
 
   function setSource(id){
@@ -146,13 +169,14 @@
     state.current=null;$('playingName').textContent='Select a channel';$('playingStatus').textContent='No stream selected';updateFavoriteButton();renderChannels();renderAbout();renderGuide();renderMiniGuide();
   }
   function playChannel(ch){
+    if(!state.webPermitted){setNotice('Web playback requires an eligible Plus trial or paid account. Open Account → Plans & Billing.','warn');return;}
     window.TunelyMultiView?.close();
     const href=safeUrl(ch.url);
     if(!href){setNotice('This channel has an invalid stream URL.','error');return;}
     if(!requestAllowed(href)){setNotice('This stream uses HTTP, which browsers typically block on HTTPS websites. Ask your licensed provider for an HTTPS URL.','warn');return;}
     stop();state.current=ch;markRecent(ch);renderChannels();updateFavoriteButton();renderAbout();renderGuide();renderMiniGuide();resetTrackSettings();
     $('playingName').textContent=ch.name;$('playingStatus').textContent='Connecting…';$('placeholder').hidden=true;video.hidden=false;
-    if(window.matchMedia('(max-width: 790px)').matches)$('videoArea').scrollIntoView({behavior:'smooth',block:'start'});
+    if(mobileChannels()&&!window.TunelyGuideFocus?.isOpen()){closeMobileChannels();$('videoArea').scrollIntoView({behavior:'smooth',block:'start'});}
     setNotice('Connecting directly to the source. '+warning);
     const path=new URL(href).pathname.toLowerCase();
     const directMedia=/\.(mp4|m4v|webm|ogv|mov|mp3|aac)$/i.test(path);
@@ -189,6 +213,22 @@
     while((match=patt.exec(extinf)))result[match[1].toLowerCase()]=match[2].slice(0,160);
     return result;
   }
+  // Only use XMLTV links explicitly advertised in the user's own M3U header.
+  // No provider URL guessing, central guide scraping, or server-side proxying.
+  function discoverM3uGuideUrls(text){
+    const header=String(text||'').split(/\r?\n/).slice(0,12).map(s=>s.trim().replace(/^\uFEFF/,''))
+      .find(s=>s.toUpperCase().startsWith('#EXTM3U'))?.slice(0,16000)||'';
+    const out=[];
+    const pattern=/(?:^|\s)(?:x-tvg-url|url-tvg|tvg-url)\s*=\s*(["'])(.*?)\1/gi;
+    for(const attr of header.matchAll(pattern)){
+      for(const part of attr[2].split(/[,;]/)){
+        const url=safeUrl(part.trim());
+        if(url&&!out.includes(url))out.push(url);
+        if(out.length>=3)return out;
+      }
+    }
+    return out;
+  }
   function parseM3U(text){
     const results=[];let meta=null;
     for(const raw of text.split(/\r?\n/)){
@@ -196,10 +236,10 @@
       if(line.startsWith('#EXTINF:')){
         let quoted=false, comma=-1; for(let i=0;i<line.length;i++){if(line[i]==='\"')quoted=!quoted;else if(line[i]===','&&!quoted){comma=i;break;}}
         const att=parseAttributes(comma<0?line:line.slice(0,comma));
-        meta={name:decodeName(comma>=0?line.slice(comma+1):att['tvg-name']),group:decodeName(att['group-title']||'Other'),tvgId:decodeName(att['tvg-id']||'')};
+        meta={name:decodeName(comma>=0?line.slice(comma+1):att['tvg-name']),group:decodeName(att['group-title']||'Other'),tvgId:decodeName(att['tvg-id']||''),tvgName:decodeName(att['tvg-name']||'')};
       } else if(line && !line.startsWith('#')){
         const url=safeUrl(line);
-        if(url)results.push({name:(meta?.name||'Channel '+(results.length+1)),url,group:meta?.group||'Other',tvgId:meta?.tvgId||''});
+        if(url)results.push({name:(meta?.name||'Channel '+(results.length+1)),url,group:meta?.group||'Other',tvgId:meta?.tvgId||'',tvgName:meta?.tvgName||''});
         meta=null;if(results.length>=5000)break;
       }
     }
@@ -222,14 +262,14 @@
     const url=safeUrl(href);if(!url)throw new Error('Invalid playlist URL.');
     if(!requestAllowed(url))throw new Error('HTTPS page cannot load this HTTP playlist. Ask your provider for an HTTPS source.');
     const path=new URL(url).pathname.toLowerCase();
-    if(path.endsWith('.m3u8')||/\.(mp4|webm|ogv)$/i.test(path))return [{name:'Direct stream',url,group:'Live stream',tvgId:''}];
+    if(path.endsWith('.m3u8')||/\.(mp4|webm|ogv)$/i.test(path))return {channels:[{name:'Direct stream',url,group:'Live stream',tvgId:''}],epgCandidates:[]};
     let raw;
     try{raw=await fetchTextLimited(url,3_000_000);}catch(err){throw new Error('Could not read the remote playlist. The provider must allow cross-origin (CORS) browser requests. You can also upload an authorized M3U file. ('+(err.message||'Network error')+')');}
-    if(/#EXT-X-(STREAM-INF|TARGETDURATION|MEDIA-SEQUENCE)/.test(raw))return [{name:'Direct HLS stream',url,group:'Live stream',tvgId:''}];
-    const channels=parseM3U(raw);if(!channels.length)throw new Error('No playable HTTP(S) entries were found in that playlist.');return channels;
+    if(/#EXT-X-(STREAM-INF|TARGETDURATION|MEDIA-SEQUENCE)/.test(raw))return {channels:[{name:'Direct HLS stream',url,group:'Live stream',tvgId:''}],epgCandidates:[]};
+    const channels=parseM3U(raw);if(!channels.length)throw new Error('No playable HTTP(S) entries were found in that playlist.');return {channels,epgCandidates:discoverM3uGuideUrls(raw)};
   }
   function applyChannels(channels, sourceText){
-    state.channels=channels.slice(0,5000).map((ch,i)=>({name:decodeName(ch.name)||'Channel '+(i+1),url:safeUrl(ch.url)||'',group:decodeName(ch.group||'Other')||'Other',tvgId:decodeName(ch.tvgId||'')})).filter(c=>c.url);
+    state.channels=channels.slice(0,5000).map((ch,i)=>({name:decodeName(ch.name)||'Channel '+(i+1),url:safeUrl(ch.url)||'',group:decodeName(ch.group||'Other')||'Other',tvgId:decodeName(ch.tvgId||''),tvgName:decodeName(ch.tvgName||'')})).filter(c=>c.url);
     state.category='all';$('filter').value='';state.filter='all';quicks.forEach(x=>{const active=x.dataset.filter==='all';x.classList.toggle('active',active);x.setAttribute('aria-pressed',String(active));});
     renderCategories();renderChannels();renderGuide();$('sourceStatus').textContent=state.channels.length+' channels loaded · '+sourceText;
     setNotice('Loaded '+state.channels.length+' channels. Playback depends on permission, HTTPS/CORS access, and compatible codecs.');
@@ -237,9 +277,9 @@
   }
   async function loadSource(id){
     window.TunelyMultiView?.close();
-    const n=++state.requestId;epgFetchCounter++;stop();state.channels=[];state.programs=new Map();state.guideChannels=new Map();state.activeDetail=null;$('epgStatus').textContent='No guide selected';state.guideUrl='';state.guideSaveId='';$('epgUrl').value='';updateGuideUi();setSource(id);renderCategories();renderGuide();renderAbout();
+    const n=++state.requestId;epgFetchCounter++;stop();state.channels=[];state.programs=new Map();state.guideChannels=new Map();state.activeDetail=null;$('epgStatus').textContent='No guide selected';state.guideUrl='';state.guideSaveId='';state.detectedGuideUrls=[];state.epgOrigin='none';$('epgUrl').value='';$('epgAutoBadge').textContent='Guide: checking playlist…';updateGuideUi();setSource(id);renderCategories();renderGuide();renderAbout();
     if(!id){$('sourceStatus').textContent='Choose a playlist to browse channels.';return;}
-    if(id==='local'){applyChannels(state.localEntries,'local file · not uploaded');return;}
+    if(id==='local'){applyChannels(state.localEntries,'local file · not uploaded');void useDetectedGuide(state.localGuideUrls,null,n);return;}
     $('sourceStatus').textContent='Loading playlist…';
     try{
       const response=await fetch('/api/playlists/'+encodeURIComponent(id)+'/playable',{credentials:'same-origin',cache:'no-store'});
@@ -247,27 +287,34 @@
       if(!response.ok)throw new Error('Could not access this playlist (HTTP '+response.status+').');
       const data=await response.json();if(n!==state.requestId)return;
       if(!data.supported){$('sourceStatus').textContent='This source needs a compatible provider integration.';setNotice(data.message||'Provider login is not yet supported in this web player.','warn');return;}
-      const entries=data.type==='m3u_file' ? data.channels : await loadRemote(data.url);
+      const feed=data.type==='m3u_file' ? {channels:data.channels,epgCandidates:data.epg_candidates||[]} : await loadRemote(data.url);
       if(n!==state.requestId)return;
-      applyChannels(entries,'saved source');
-      if(data.epg_url&&data.epg_url.startsWith('https://')){state.guideUrl=data.epg_url;state.guideSaveId=id;$('epgUrl').value=data.epg_url;updateGuideUi();void loadRemoteEpg(true);}
+      applyChannels(feed.channels,'saved source');
+      void useDetectedGuide(feed.epgCandidates||[],data.epg_url||null,n);
     }catch(err){if(n!==state.requestId)return;$('sourceStatus').textContent='Playlist unavailable';setNotice(err.message||'Unable to load playlist.','error');}
   }
-  sourcePick.addEventListener('change',()=>loadSource(sourcePick.value));
+  sourcePick.addEventListener('change',()=>{
+    const id=sourcePick.value;
+    void loadSource(id);
+    // Persist the selection per account, not globally per browser. Local M3U imports are session only.
+    if(state.loggedIn && id && id!=='local')void apiMutation('/api/player/preferences','PATCH',{playlist_id:id})
+      .catch(()=>setNotice('Playlist loaded, but its selection could not be saved for next time.','warn'));
+  });
   $('localM3u').addEventListener('change',async ev=>{
+    if(!state.webPermitted){setNotice('Start a Plus trial to use browser playback.','warn');ev.target.value='';return;}
     const file=ev.target.files?.[0];if(!file)return;
     if(!$('localAuthorized').checked){setNotice('Confirm that you have permission to access this playlist before importing it.','warn');ev.target.value='';return;}
     if(file.size>3_000_000){setNotice('M3U files are limited to 3 MB for this browser test.','warn');return;}
     try{
-      const raw=await file.text();const entries=parseM3U(raw);if(!entries.length)throw new Error('No valid HTTP(S) stream URLs found in that file.');
+      const raw=await file.text();const entries=parseM3U(raw);const epgCandidates=discoverM3uGuideUrls(raw);if(!entries.length)throw new Error('No valid HTTP(S) stream URLs found in that file.');
       if(![...sourcePick.options].some(o=>o.value==='local'))sourcePick.add(new Option('Local session playlist','local'));
-      sourcePick.value='local';state.requestId++;window.TunelyMultiView?.close();stop();state.localEntries=entries;setSource('local');applyChannels(entries,'local file · not uploaded');
+      sourcePick.value='local';state.requestId++;window.TunelyMultiView?.close();stop();state.localEntries=entries;state.localGuideUrls=epgCandidates;state.programs=new Map();state.guideChannels=new Map();state.guideUrl='';state.guideSaveId='';state.epgOrigin='none';$('epgUrl').value='';$('epgAutoBadge').textContent='Guide: checking playlist…';setSource('local');applyChannels(entries,'local file · not uploaded');void useDetectedGuide(epgCandidates,null,state.requestId);
       setTab('guide');$('channelBrowser').scrollIntoView({behavior:'smooth',block:'start'});
     }catch(err){setNotice(err.message,'error');}
     ev.target.value='';
   });
   $('directForm').addEventListener('submit',ev=>{
-    ev.preventDefault();if(!$('authorized').checked){setNotice('Confirm that you are authorized to access this stream before playing it.','warn');return;}
+    ev.preventDefault();if(!state.webPermitted){setNotice('Web playback is not included on Free. Start a Plus trial from Account.','warn');return;}if(!$('authorized').checked){setNotice('Confirm that you are authorized to access this stream before playing it.','warn');return;}
     const url=safeUrl($('directUrl').value.trim());if(!url){setNotice('Enter a valid HTTP(S) stream URL.','error');return;}
     playChannel({name:'Direct browser stream',url,group:'Direct',tvgId:''});
   });
@@ -287,7 +334,7 @@
     if(doc.querySelector('parsererror'))throw new Error('Invalid XMLTV file.');
     const guides=new Map(),names=new Map();
     for(const chan of [...doc.getElementsByTagName('channel')].slice(0,10000)){
-      const id=chan.getAttribute('id');if(id)names.set(norm(first(chan,'display-name')),id);
+      const id=chan.getAttribute('id');if(id){for(const display of [...chan.getElementsByTagName('display-name')].slice(0,5)){const key=norm(display.textContent);if(key&&!names.has(key))names.set(key,id);}}
     }
     for(const entry of [...doc.getElementsByTagName('programme')].slice(0,30000)){
       const id=entry.getAttribute('channel'),start=epgDate(entry.getAttribute('start')),end=epgDate(entry.getAttribute('stop'));
@@ -305,7 +352,7 @@
     if(file.size>10_000_000){setNotice('Please choose an XMLTV file under 10 MB.','warn');ev.target.value='';return;}
     try{
       const txt=await file.text();const count=parseXMLTV(txt);
-      state.guideUrl='';state.guideSaveId='';state.lastEpgRefresh=0;updateGuideUi();
+      state.guideUrl='';state.guideSaveId='';state.epgOrigin='file';state.lastEpgRefresh=0;updateGuideUi();
       $('epgStatus').textContent='Local guide · '+count+' programs (no automatic file refresh)';
       renderGuide();renderAbout();renderMiniGuide();setTab('guide');setNotice('XMLTV file loaded locally. The file was not uploaded.');
     }catch(err){setNotice('Could not open guide: '+err.message,'error');}
@@ -314,34 +361,85 @@
   function updateGuideUi(){
     $('saveEpgUrl').disabled=!cloudEnabled();
     $('removeEpgUrl').disabled=!cloudEnabled() || !state.guideSaveId;
-    if(!state.guideUrl)$('epgRefreshStatus').textContent='No auto-refresh URL active';
+    if(!state.guideUrl)$('epgRefreshStatus').textContent='Automatic EPG: waiting for playlist metadata';
+  }
+  // Guard decompression of XMLTV .gz; browsers transparently handle HTTP
+  // Content-Encoding: gzip, but some providers serve raw gzip files.
+  async function fetchGuideText(url){
+    const ctl=new AbortController(),timer=setTimeout(()=>ctl.abort(),15000);
+    const maxInput=10_000_000,maxOutput=20_000_000;
+    async function collect(stream,limit){
+      const reader=stream.getReader();let size=0;const parts=[];
+      while(true){const {done,value}=await reader.read();if(done)break;size+=value.length;
+        if(size>limit){await reader.cancel();throw new Error('Guide exceeds size limit');}parts.push(value);}
+      const buf=new Uint8Array(size);let off=0;for(const part of parts){buf.set(part,off);off+=part.length;}return buf;
+    }
+    try{
+      const response=await fetch(url,{credentials:'omit',mode:'cors',cache:'no-store',signal:ctl.signal});
+      if(!response.ok)throw new Error('Guide server returned HTTP '+response.status);
+      if(Number(response.headers.get('content-length')||0)>maxInput)throw new Error('Guide exceeds size limit');
+      const bytes=await collect(response.body,maxInput);
+      const gzip=bytes[0]===0x1f&&bytes[1]===0x8b;
+      if(!gzip)return new TextDecoder().decode(bytes);
+      if(typeof DecompressionStream==='undefined')throw new Error('Compressed XMLTV is unsupported in this browser');
+      const output=await collect(new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip')),maxOutput);
+      return new TextDecoder().decode(output);
+    }finally{clearTimeout(timer);}
   }
   let epgFetchCounter=0;
-  async function loadRemoteEpg(automatic=false){
-    const url=safeUrl(state.guideUrl);if(!url)return;
-    if(!requestAllowed(url)){$('epgRefreshStatus').textContent='HTTPS is required for hosted playback.';return;}
-    const serial=++epgFetchCounter;const source=state.sourceId;
-    state.lastEpgRefresh=Date.now(); // throttle retries too, even after a failed fetch
-    $('epgRefreshStatus').textContent=automatic?'Refreshing guide…':'Loading authorized XMLTV guide…';
+  async function loadRemoteEpg(automatic=false,quiet=false){
+    const url=safeUrl(state.guideUrl);if(!url)return false;
+    if(!requestAllowed(url)){$('epgRefreshStatus').textContent='Automatic EPG: HTTPS required on this website';return false;}
+    const serial=++epgFetchCounter,source=state.sourceId;
+    state.lastEpgRefresh=Date.now();
+    $('epgRefreshStatus').textContent=automatic?'Checking provider guide…':'Loading authorized XMLTV guide…';
+    $('epgAutoBadge').textContent='Guide: loading from provider…';
     try{
-      const txt=await fetchTextLimited(url,10_000_000);
-      if(serial!==epgFetchCounter||source!==state.sourceId)return;
-      const count=parseXMLTV(txt);state.lastEpgRefresh=Date.now();
+      const txt=await fetchGuideText(url);
+      if(serial!==epgFetchCounter||source!==state.sourceId)return false;
+      const count=parseXMLTV(txt);if(count===0)throw new Error('No valid XMLTV programmes found');
+      state.lastEpgRefresh=Date.now();
       const time=new Intl.DateTimeFormat(undefined,{hour:'numeric',minute:'2-digit'}).format(new Date());
-      $('epgRefreshStatus').textContent='Last refreshed '+time+' · '+count+' programs · every 60 min while open';
-      $('epgStatus').textContent=count+' programs from authorized XMLTV URL';
+      $('epgRefreshStatus').textContent=(state.epgOrigin==='auto'?'Auto EPG':'EPG')+' · updated '+time+' · '+count+' programmes · refresh hourly while open';
+      $('epgStatus').textContent=count+' programs from authorized XMLTV ('+(state.epgOrigin==='auto'?'automatic':'selected')+')';
+      $('epgAutoBadge').textContent='Guide: '+count+' listings · '+(state.epgOrigin==='auto'?'automatic':'manual');
       renderGuide();renderAbout();renderMiniGuide();
-      if(!automatic){setNotice('Guide loaded directly from your permitted source. You can now save the URL to this playlist, or open TV Guide.');}
-    }catch(err){if(serial!==epgFetchCounter||source!==state.sourceId)return;
-      $('epgRefreshStatus').textContent='Unable to refresh; existing guide data retained';
-      setNotice('Guide refresh failed. Provider HTTPS, CORS, XMLTV format and connection must permit browser access. '+err.message,'warn');
+      if(!automatic)setNotice('Guide loaded from your authorized source.');
+      return true;
+    }catch(err){if(serial!==epgFetchCounter||source!==state.sourceId)return false;
+      $('epgRefreshStatus').textContent='EPG unavailable: '+(err.message||'Network/CORS error');
+      $('epgAutoBadge').textContent='Guide: unavailable';
+      if(!quiet)setNotice('Guide unavailable: provider HTTPS, CORS, format or browser support may prevent access. '+(err.message||''),'warn');
+      return false;
+    }
+  }
+  async function useDetectedGuide(candidates,manualUrl,requestId){
+    const options=[...new Set((candidates||[]).map(safeUrl).filter(Boolean))].slice(0,3);
+    state.detectedGuideUrls=options;
+    if(manualUrl&&safeUrl(manualUrl)&&requestAllowed(manualUrl)){
+      state.guideUrl=safeUrl(manualUrl);state.guideSaveId=state.sourceId;state.epgOrigin='manual';
+      $('epgUrl').value=state.guideUrl;updateGuideUi();await loadRemoteEpg(true);return;
+    }
+    if(!options.length){$('epgRefreshStatus').textContent='No EPG link advertised by this playlist · advanced manual setup available';$('epgAutoBadge').textContent='Guide: none provided';return;}
+    const source=state.sourceId;
+    const available=options.filter(requestAllowed);
+    if(!available.length){$('epgRefreshStatus').textContent='Provider only advertises HTTP EPG; HTTPS required';$('epgAutoBadge').textContent='Guide: HTTPS required';return;}
+    for(const url of available){
+      if(requestId!==state.requestId||source!==state.sourceId)return;
+      state.guideUrl=url;state.epgOrigin='auto';updateGuideUi();
+      if(await loadRemoteEpg(true,true))return;
+    }
+    if(requestId===state.requestId&&source===state.sourceId){
+      $('epgRefreshStatus').textContent='Auto EPG found, but provider access failed (HTTPS / CORS / XMLTV). Advanced manual setup available';
+      $('epgStatus').textContent='No compatible program listings';
+      $('epgAutoBadge').textContent='Guide: unavailable';
     }
   }
   $('loadEpgUrl').addEventListener('click',()=>{
     const url=safeUrl($('epgUrl').value.trim());
     if(!url||!requestAllowed(url)){setNotice('Enter a valid HTTPS XMLTV guide URL.','warn');return;}
     if(!$('epgAuthorized').checked){setNotice('Confirm you have permission to access this guide.','warn');return;}
-    state.guideUrl=url;state.lastEpgRefresh=0;updateGuideUi();void loadRemoteEpg(false);
+    state.guideUrl=url;state.epgOrigin='manual';state.lastEpgRefresh=0;updateGuideUi();void loadRemoteEpg(false);
   });
   $('saveEpgUrl').addEventListener('click',async()=>{
     if(!cloudEnabled()||!state.guideUrl){setNotice('Load a guide URL and choose a saved account playlist first.','warn');return;}
@@ -354,7 +452,7 @@
     if(!cloudEnabled())return;
     const id=state.sourceId;
     try{await apiMutation('/api/playlists/'+encodeURIComponent(id)+'/guide','PATCH',{url:null});
-      if(id===state.sourceId){state.guideSaveId='';updateGuideUi();setNotice('Saved XMLTV URL removed. The currently loaded guide stays until source changes.');}
+      if(id===state.sourceId){state.guideSaveId='';state.guideUrl='';state.epgOrigin='none';$('epgUrl').value='';updateGuideUi();void useDetectedGuide(state.detectedGuideUrls,null,state.requestId);setNotice('Manual guide removed. Provider-advertised automatic EPG will be used when available.');}
     }catch(err){setNotice('Unable to remove guide URL: '+err.message,'error');}
   });
   // No server-side fetch and no background jobs. An open visible tab performs refresh.
@@ -364,8 +462,9 @@
   });
   function programsFor(channel){
     if(!channel)return [];
-    const id=channel.tvgId || state.guideChannels.get(norm(channel.name));
-    return state.programs.get(id)||[];
+    const ids=[channel.tvgId,state.guideChannels.get(norm(channel.tvgName)),state.guideChannels.get(norm(channel.name))];
+    for(const id of ids){if(!id)continue;const found=state.programs.get(id)||state.programs.get(norm(id));if(found?.length)return found;}
+    return [];
   }
   function currentNext(channel){
     const now=Date.now(),values=programsFor(channel);
@@ -453,10 +552,10 @@
   function renderListGuide(){
     const root=$('guideList');root.replaceChildren();$('guideClock').textContent=new Intl.DateTimeFormat(undefined,{hour:'numeric',minute:'2-digit'}).format(new Date())+' · Local time';
     if(state.programs.size===0){
-      const emp=node('div','guide-empty');emp.append(node('span','guide-empty-icon','▤'),node('b','', 'No guide loaded yet'),node('p','', 'Open “Add a source” and import an authorized XMLTV guide (.xml). Program listings are never invented.'));
+      const emp=node('div','guide-empty');emp.append(node('span','guide-empty-icon','▤'),node('b','', 'No listings available from this provider'),node('p','', 'TunelyTV checks the playlist for its provider-supplied guide automatically. You can also use the advanced manual guide settings.'));
       const btn=node('button','file-label','Load an XMLTV file →');btn.type='button';btn.addEventListener('click',showSetup);emp.append(btn);root.append(emp);return;
     }
-    if(!state.channels.length){root.append(node('p','empty','Choose a playlist to match channels with your guide.'));return;}
+    if(!state.channels.length){root.append(node('p','empty','Choose a playlist. TunelyTV will check its EPG automatically.'));return;}
     for(const ch of state.channels.slice(0,200)){
       const {live,next}=currentNext(ch),button=node('button','guide-row');button.type='button';
       if(state.current&&cid(state.current)===cid(ch))button.classList.add('current');
@@ -513,12 +612,13 @@
   function renderGridGuide() {
     const root=$('guideGrid');
     const previousScroll=root.querySelector('.epg-scroll')?.scrollLeft||0;
+    const previousTop=root.querySelector('.epg-scroll')?.scrollTop||0;
     root.replaceChildren();
     const start=state.guideStart, end=start+GRID_MINUTES*60_000;
     $('guideClock').textContent=dateLabel(start)+' · '+formatTime(start)+'–'+formatTime(end);
     const filtered=visibleChannels();
     if(!state.channels.length) {
-      const wrap=node('div','epg-grid-empty');wrap.append(node('span','epg-empty-mark','▦'),node('h3','', 'Your TV guide starts here'),node('p','', 'Choose a playlist to see its channels. Import an authorized XMLTV file for real program listings.'));
+      const wrap=node('div','epg-grid-empty');wrap.append(node('span','epg-empty-mark','▦'),node('h3','', 'Your TV guide starts here'),node('p','', 'Choose a playlist to see channels. TunelyTV loads available provider EPG automatically.'));
       const btn=node('button','file-label','Add a source →');btn.type='button';btn.addEventListener('click',showSetup);wrap.append(btn);root.append(wrap);return;
     }
     if(!filtered.length) {root.append(node('div','epg-grid-empty','No channels match the selected search, category, or favorites filter.'));return;}
@@ -575,13 +675,14 @@
       if(now>=start&&now<end){const liveLine=node('span','epg-live-line');liveLine.style.left=((now-start)/60000*GRID_PX_PER_MIN)+'px';track.append(liveLine);}
       row.append(track);grid.append(row);
     }
-    scroll.append(grid);root.append(scroll);scroll.scrollLeft=previousScroll;
+    scroll.append(grid);root.append(scroll);scroll.scrollLeft=previousScroll;scroll.scrollTop=previousTop;
     if(filtered.length>state.gridLimit)root.append(node('p','epg-truncated','Showing the first '+state.gridLimit+' matching channels. Refine the channel search or category to see others.'));
     if(state.programs.size===0)root.append(node('p','epg-no-xmltv','No XMLTV guide loaded. The timeline shows empty schedule slots, not fabricated programming. Open “Add a source” to import a guide.'));
   }
   function renderGuide(){
     if(state.guideView==='grid')renderGridGuide();
     else renderListGuide();
+    window.dispatchEvent(new Event('tunely:guide-rendered'));
   }
   function renderAbout(){
     const root=$('programCards');root.replaceChildren();const ch=state.current;
@@ -596,18 +697,33 @@
       root.append(card);
     }
   }
-  document.addEventListener('keydown',ev=>{if(ev.key==='/'&&!['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName)){ev.preventDefault();$('filter').focus();scrollBrowser();}});
+  document.addEventListener('keydown',ev=>{if(ev.key==='/'&&!['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName)){ev.preventDefault();if(window.TunelyGuideFocus?.isOpen()){ $('gfSearch').focus();return; }$('filter').focus();scrollBrowser();}});
   document.addEventListener('keydown',ev=>{
-    if(window.TunelyMultiView?.isActive())return;
+    if(window.TunelyMultiView?.isActive()||window.TunelyGuideFocus?.isOpen())return;
     if(ev.altKey||ev.ctrlKey||ev.metaKey||['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName))return;
     const key=ev.key.toLowerCase();
-    if(key==='g'){ev.preventDefault();toggleMiniGuide();}
+    if(key==='g'){ev.preventDefault();if(window.TunelyGuideFocus)window.TunelyGuideFocus.toggle();else toggleMiniGuide();}
     else if(key==='m'){ev.preventDefault();video.muted=!video.muted;}
     else if(key==='f'){ev.preventDefault();$('fullscreen').click();}
     else if(ev.key==='ArrowUp'){ev.preventDefault();switchChannel(-1);}
     else if(ev.key==='ArrowDown'){ev.preventDefault();switchChannel(1);}
     else if(ev.key==='Escape'){$('miniGuide').hidden=true;$('playerSettings').hidden=true;}
   });
+  // Check expiry even if the viewer leaves the page open across the trial deadline.
+  // Revoking the in-app playback state cannot revoke provider URLs copied externally.
+  setInterval(async()=>{
+    if(localPreview||!state.loggedIn||document.visibilityState!=='visible')return;
+    try{
+      const response=await fetch('/api/license/me',{credentials:'same-origin',cache:'no-store'});
+      if(!response.ok)return;
+      const license=await response.json();
+      if(!license.web_playback && state.webPermitted){
+        state.webPermitted=false;document.body.classList.add('license-web-locked');
+        window.TunelyMultiView?.close();stop();
+        setNotice('Your Plus trial or subscription has ended. Saved playlists remain available in Account. Free is TV-only.','warn');
+      }
+    }catch{}
+  },60000);
   setInterval(()=>{
     if(document.visibilityState==='visible'){
       renderAbout();if(!$('miniGuide').hidden)renderMiniGuide();
@@ -620,14 +736,41 @@
     try{
       const me=await fetch('/api/me',{credentials:'same-origin',cache:'no-store'});
       if(!me.ok){sourcePick.replaceChildren(new Option('Sign in to see saved playlists',''));$('sourceStatus').textContent='Please sign in on the dashboard. You can still import a local M3U file.';setNotice('Sign in on the dashboard for saved playlists, or use a local session M3U file.','warn');return;}
-      state.loggedIn=true;updateGuideUi();updateSyncStatus('Sign in confirmed. Saved playlists will cloud-sync preferences.');
+      state.loggedIn=true;updateGuideUi();
+      const licenseResponse=await fetch('/api/license/me',{credentials:'same-origin',cache:'no-store'});
+      if(!licenseResponse.ok)throw new Error('Unable to verify this account’s viewing permissions.');
+      const license=await licenseResponse.json();
+      if(!license.web_playback){
+        sourcePick.replaceChildren(new Option('Web playback unavailable on Free',''));
+        $('sourceStatus').textContent='Free is TV-only. Start your 7-day Plus trial from Account → Plans & Billing.';
+        setNotice('Your Free plan includes one TV, but web playback requires an eligible Plus trial or paid plan. Open Account → Plans & Billing.','warn');
+        document.body.classList.add('license-web-locked');
+        return;
+      }
+      state.webPermitted=true;document.body.classList.remove('license-web-locked');
+      updateSyncStatus('Sign in confirmed. Your account can access supported web playback.');
       const response=await fetch('/api/playlists',{credentials:'same-origin',cache:'no-store'});if(!response.ok)throw new Error('Unable to load your account playlists.');
       const data=await response.json();state.sources=data.playlists||[];
       sourcePick.replaceChildren(new Option(state.sources.length?'Select a saved playlist':'No saved playlists yet',''));
       state.sources.forEach(p=>sourcePick.add(new Option(p.name+' · '+p.type,p.id)));
-      $('sourceStatus').textContent=state.sources.length?state.sources.length+' saved playlist(s) available.':'Add your first playlist from the dashboard or import a local M3U file.';
+      $('sourceStatus').textContent=state.sources.length?'Restoring your last saved playlist…':'No playlists yet. Add one from the dashboard.';
+      if(state.sources.length){
+        let preferred='';
+        try{
+          const pref=await fetch('/api/player/preferences',{credentials:'same-origin',cache:'no-store'});
+          if(pref.ok){const saved=await pref.json();preferred=saved.playlist_id||'';}
+        }catch{}
+        // The server clears deleted playlist IDs; if none exists, use the first available.
+        if(!state.sources.some(p=>p.id===preferred))preferred=state.sources[0].id;
+        sourcePick.value=preferred;
+        await loadSource(preferred);
+        window.TunelyGuideFocus?.maybeStartInGuide();
+        // Save the chosen default, too, so it follows the user to another browser.
+        void apiMutation('/api/player/preferences','PATCH',{playlist_id:preferred}).catch(()=>{});
+      }
     }catch{sourcePick.replaceChildren(new Option('Account playlists unavailable',''));$('sourceStatus').textContent='Sign in or use local session import.';setNotice('Account playlist service is unavailable. Local file import and direct stream testing remain available.','warn');}
   }
+  window.TunelyGuideBridge={getCurrent:()=>state.current,getChannels:()=>state.channels, getDetail:()=>state.activeDetail, getNowNext:ch=>ch?currentNext(ch):{live:null,next:null},formatTime, setGuideView, renderGuide, getProgramsLoaded:()=>state.programs.size, sourceId:()=>state.sourceId};
   window.TunelyMultiBridge={
     getChannels:()=>state.channels.slice(),
     getCurrent:()=>state.current,
