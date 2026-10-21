@@ -152,6 +152,13 @@ class ContentKindUpdate(BaseModel):
     content_kind: Literal['auto', 'live', 'movies', 'series']
 
 
+class HiddenLibraryItem(BaseModel):
+    # Hash of media URL; never submit user playlist credentials or URLs here.
+    item_key: str = Field(pattern=r'^[a-f0-9]{64}$')
+    title: str = Field(min_length=1, max_length=180)
+    reason: Literal['unavailable', 'user_hidden'] = 'user_hidden'
+
+
 class DeviceNew(BaseModel):
     name: str = Field(min_length=1, max_length=60)
     platform: str = Field(min_length=1, max_length=60)
@@ -268,8 +275,15 @@ def create_app(db_path: str | Path | None = None, key_path: str | Path | None = 
               channel_key TEXT NOT NULL, played_at INTEGER NOT NULL,
               PRIMARY KEY (owner_id, playlist_id, channel_key));
             CREATE INDEX IF NOT EXISTS idx_recent_channels ON recent_channels(owner_id, playlist_id, played_at DESC);
+            CREATE TABLE IF NOT EXISTS library_hidden_items (
+              owner_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+              playlist_id TEXT NOT NULL REFERENCES playlists(id) ON DELETE CASCADE,
+              item_key TEXT NOT NULL, title TEXT NOT NULL, reason TEXT NOT NULL,
+              hidden_at INTEGER NOT NULL,
+              PRIMARY KEY (owner_id, playlist_id, item_key));
+            CREATE INDEX IF NOT EXISTS idx_hidden_library_owner ON library_hidden_items(owner_id, playlist_id);
         ''')
-    app = FastAPI(title='TunelyTV Web Staging API', version='0.10.0', docs_url=None if prod else '/api/docs', redoc_url=None, openapi_url=None if prod else '/openapi.json')
+    app = FastAPI(title='TunelyTV Web Staging API', version='0.10.1', docs_url=None if prod else '/api/docs', redoc_url=None, openapi_url=None if prod else '/openapi.json')
     app.state.db_path = str(database_path)
     app.state.cipher = cipher
     app.state.production = prod
@@ -350,7 +364,7 @@ def create_app(db_path: str | Path | None = None, key_path: str | Path | None = 
 
     @app.get('/api/health')
     def health():
-        return {'status': 'ok', 'service': 'TunelyTV web staging', 'version': '0.9.9'}
+        return {'status': 'ok', 'service': 'TunelyTV web staging', 'version': '0.10.1'}
 
     @app.get('/api/features/multiview')
     def multiview_access(user=Depends(current_user)):
@@ -497,6 +511,43 @@ def create_app(db_path: str | Path | None = None, key_path: str | Path | None = 
             con.execute('UPDATE playlists SET config_encrypted=? WHERE id=? AND owner_id=?',
                         (cipher.encrypt(json.dumps(config).encode()), playlist_id, user['user_id']))
         return {'id': playlist_id, 'content_kind': inp.content_kind}
+
+    @app.get('/api/library/hidden')
+    def list_hidden_library_items(user=Depends(current_user)):
+        # Titles alone are returned. The URL and any provider secrets are never stored here.
+        with db() as con:
+            rows = con.execute('''SELECT playlist_id, item_key, title, reason, hidden_at
+                FROM library_hidden_items WHERE owner_id=? ORDER BY hidden_at DESC LIMIT 5000''',
+                (user['user_id'],)).fetchall()
+        return {'items': [dict(row) for row in rows]}
+
+    @app.post('/api/playlists/{playlist_id}/library-hidden', status_code=201)
+    def hide_library_item(playlist_id: str, inp: HiddenLibraryItem, user=Depends(csrf_user)):
+        with db() as con:
+            if not own_playlist(con, user['user_id'], playlist_id):
+                fail('Playlist not found.', 404)
+            total = con.execute('SELECT COUNT(*) FROM library_hidden_items WHERE owner_id=?',
+                                (user['user_id'],)).fetchone()[0]
+            already = con.execute('''SELECT 1 FROM library_hidden_items WHERE owner_id=?
+                AND playlist_id=? AND item_key=?''', (user['user_id'],playlist_id,inp.item_key)).fetchone()
+            if total >= 5000 and not already:
+                fail('Hidden-item limit reached.')
+            con.execute('''INSERT INTO library_hidden_items (owner_id,playlist_id,item_key,title,reason,hidden_at)
+                VALUES (?,?,?,?,?,?) ON CONFLICT(owner_id,playlist_id,item_key) DO UPDATE SET
+                title=excluded.title, reason=excluded.reason, hidden_at=excluded.hidden_at''',
+                (user['user_id'], playlist_id, inp.item_key, inp.title, inp.reason, now()))
+        return {'hidden': True, 'item_key': inp.item_key}
+
+    @app.delete('/api/playlists/{playlist_id}/library-hidden/{item_key}')
+    def restore_library_item(playlist_id: str, item_key: str, user=Depends(csrf_user)):
+        if not re.fullmatch(r'[a-f0-9]{64}', item_key):
+            fail('Invalid item key.')
+        with db() as con:
+            if not own_playlist(con, user['user_id'], playlist_id):
+                fail('Playlist not found.', 404)
+            con.execute('''DELETE FROM library_hidden_items WHERE owner_id=? AND playlist_id=?
+                AND item_key=?''', (user['user_id'], playlist_id, item_key))
+        return {'hidden': False, 'item_key': item_key}
 
     @app.get('/api/playlists/{playlist_id}/playable')
     def playlist_for_browser(playlist_id: str, user=Depends(current_user)):

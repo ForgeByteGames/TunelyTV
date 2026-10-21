@@ -5,7 +5,7 @@ const $ = id => document.getElementById(id);
 const e = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const icon = s => `<svg aria-hidden="true"><use href="#i-${s}"/></svg>`;
 const typeNames = {m3u_url:'M3U URL',m3u_file:'M3U file',xtream:'Xtream login'};
-const kindLabels={auto:'Automatic (detect VOD)',live:'Live TV',movies:'Movies / VOD',series:'TV Series / Episodes'};
+const kindLabels={auto:'Automatic (strict: live TV unless clear VOD)',live:'Live TV',movies:'Movies / VOD',series:'TV Series / Episodes'};
 const kindOptions=(current='auto')=>Object.entries(kindLabels).map(([k,label])=>`<option value="${k}" ${k===current?'selected':''}>${label}</option>`).join('');
 const methodNames = {code:'App pairing code',mac:'MAC address',device_id:'Device ID',ip:'Local IP address'};
 let csrf='', account='', registerMode=false, inviteRequired=false, page='overview', state={sources:[],devices:[],lastPlaylistId:null}, toastTimeout;
