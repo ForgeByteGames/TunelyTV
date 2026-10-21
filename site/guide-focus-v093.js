@@ -19,7 +19,7 @@ function labelSelected(){
  const bridge=api();if(!bridge)return;
  const ch=chosenChannel||bridge.getCurrent();
  let program=chosenProgram;
- if(!ch){$('gfTitle').textContent='Your TV guide';$('gfChannel').textContent='Browse your playlist';$('gfTiming').textContent='';$('gfLabel').textContent='YOUR TV GUIDE';$('gfDesc').textContent='Pick a channel below to start watching. Program listings appear when an authorized XMLTV source is available.';$('gfProgress').hidden=true;return;}
+ if(!ch){$('gfTitle').textContent='Choose a channel';$('gfChannel').textContent='Browse your playlist';$('gfTiming').textContent='';$('gfLabel').textContent='YOUR TV GUIDE';$('gfDesc').textContent='Select any channel from the guide to start watching. Program listings require an authorized XMLTV source.';$('gfProgress').hidden=true;return;}
  const {live}=bridge.getNowNext(ch);
  if(!program)program=live;
  const now=Date.now();
@@ -48,16 +48,6 @@ function syncToolbar(){
 }
 function open(auto=false){
  if(isOpen||window.TunelyMultiView?.isActive())return;
- // The guide is outside #videoArea. Browser fullscreen hides all siblings,
- // so exit video fullscreen before presenting the guide (retaining playback).
- if(document.fullscreenElement){
-   if(typeof document.exitFullscreen==='function'){
-     Promise.resolve(document.exitFullscreen()).then(()=>open(auto)).catch(()=>{
-       const status=$('gfStatus');if(status)status.textContent='Exit fullscreen, then open TV Guide.';
-     });
-   }
-   return;
- }
  const bridge=api();if(!bridge)return;
  lastFocus=document.activeElement;isOpen=true;
  guide.hidden=false;document.body.classList.add('gf-open');document.querySelector('.app-shell').inert=true;

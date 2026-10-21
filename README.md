@@ -1,10 +1,10 @@
-# TunelyTV v0.10.0 — Playlist Movies/Series vs Where to Watch
+# TunelyTV v0.9.10 — QR TV Pairing Preview
 
-See [V0.10.0-PLAYLIST-LIBRARIES.md](V0.10.0-PLAYLIST-LIBRARIES.md) for source-type selection, use of an existing Sintel HLS URL, licensing precautions and deployment details.
+For setup steps, security notes, and release limitations, see `V0.9.10-QR-TV-PAIRING.md`.
 
-# TunelyTV v0.9.9 — Last Channel & Viewing Navigation
+## New in v0.9.9 — Automatic M3U Plus Metadata Setup
 
-New in v0.9.9: reopen the user's most recent channel per selected playlist, attempt playback (muted fallback where browser requires), improve empty-player copy, correctly open the TV guide from fullscreen, and add links to official external streaming-service sites from service discovery cards and detail panels. Provider links are service landing pages, **not exact title deep links**; TMDb does not supply those. Licensing, EPG, Multi-View and provider-logo logic from v0.9.8 remain intact. See `V0.9.9-PLAYER-AND-EXTERNAL-NAVIGATION.md`.
+TunelyTV now recognizes authorized provider M3U Plus `get.php` URLs saved in **Account → Sources**, loads provider playlist metadata via a bounded authenticated reader, and attempts a conventional same-provider XMLTV guide automatically. This update never relays live streams. HTTP/MPEG-TS browser playback remains limited. See **V0.9.9-M3UPLUS-PROVIDER-SETUP.md** for setup, credential safety and licensing restrictions. This is a development package, not a live deployment.
 
 # TunelyTV v0.9.8 — Live Guide Preview and Provider Logos
 

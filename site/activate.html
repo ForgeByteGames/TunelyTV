@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#071426"><title>Connect your TV | TunelyTV</title><link rel="stylesheet" href="/static/activate-v0910.css"></head>
+<body>
+<main class="activate-card">
+ <header class="brand"><img src="/static/tunely-icon.webp" alt=""><strong>Tunely<span>TV</span></strong><small>SECURE TV ACTIVATION</small></header>
+ <section id="activationView">
+  <div class="eyebrow">ONE-TIME DEVICE LINK</div>
+  <h1>Connect your TV.</h1><p class="intro">Confirm the code shown on your television. Your playlist credentials stay in your account and are never placed in the QR code.</p>
+  <label for="code">Code shown on your TV</label><input id="code" placeholder="ABCD-EFGH" maxlength="9" inputmode="text" autocomplete="off" spellcheck="false" aria-describedby="codeHelp"><p class="field-help" id="codeHelp">Codes expire after 10 minutes. If yours expired, generate a new one on the TV.</p>
+  <section id="loginArea" hidden><div class="section-divider">Sign in to your existing account</div><form id="loginForm"><label for="email">Email</label><input id="email" type="email" autocomplete="username" required><label for="password">Password</label><input id="password" type="password" autocomplete="current-password" required><button class="primary" type="submit" id="loginButton">Sign in securely</button></form></section>
+  <section id="linkArea" hidden><div class="signed-in"><span class="checkmark">✓</span><span>Signed in as <strong id="accountEmail"></strong></span><button type="button" id="signOut" class="quiet">Switch account</button></div><label for="playlist">Playlist to assign to this TV</label><select id="playlist"><option value="">Set up a playlist later</option></select><p class="field-help">Only your saved, authorized playlists appear. <a href="/account?section=sources" target="_blank" rel="noopener noreferrer">Manage playlists</a> in another tab, then refresh this list.</p><button type="button" id="reloadPlaylists" class="quiet">↻ Refresh playlist list</button><button class="primary" id="confirm" type="button">Approve &amp; connect this TV</button><p class="security-note">Check the code on the TV before approving. Only approve a device you recognize.</p></section>
+  <p role="alert" id="error" class="error" aria-live="polite"></p>
+ </section>
+ <section id="successView" hidden><div class="success-icon">✓</div><h1>TV connected!</h1><p>The device has been added to your TunelyTV account. Your TV should update automatically within a few seconds.</p><a class="primary anchor-btn" href="/account?section=devices">Manage your devices</a></section>
+ <footer><a href="/">TunelyTV Home</a><span>Bring your own authorized sources · No channels included</span></footer>
+</main><script src="/static/activate-v0910.js"></script>
+</body></html>

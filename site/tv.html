@@ -1,15 +1,21 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><meta name="theme-color" content="#0b1220"/><title>TunelyTV | Device Pairing Simulator</title><link rel="stylesheet" href="/static/tv.css"/></head>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#071426"><title>TunelyTV | Pair your TV</title><link rel="stylesheet" href="/static/tv.css"></head>
 <body>
 <div class="ambient"></div>
 <main class="tv-app">
-  <div class="top"><div class="logo"><div class="mark">▶</div><b>tunely<span>TV</span></b></div><div class="tag">TV APP SIMULATOR <span class="dot"></span></div></div>
-  <section class="showcase"><div class="glow"></div><div class="eyebrow" id="eyebrow">GET CONNECTED</div><h1 id="statusHeading">Connect your TV<br/><span>in seconds.</span></h1><p id="statusDesc">Pair this simulated TunelyTV device to your web dashboard using a short-lived code. The native TV app can use this same API later.</p>
-    <div id="pairPanel"><div class="code-frame" id="codeFrame"><div class="code-title">YOUR SECURE PAIRING CODE</div><div class="code" id="pairCode">— — — —</div><div class="code-meta" id="expires">Generate a pairing code to start</div></div><button class="action" id="startButton">Generate pairing code <span>➜</span></button><p class="tip">Then enter the code at <strong>your TunelyTV dashboard → My Devices → Pair a TV</strong></p></div>
-    <div id="pairedPanel" hidden><div class="success"><span>✓</span><b>Device connected</b><small>Your account has been verified. Changes from the dashboard sync automatically.</small></div><div class="detail"><label>Device name</label><strong id="deviceName">—</strong></div><div class="detail"><label>Assigned playlist</label><strong id="playlistName">No playlist assigned</strong></div><div class="detail"><label>Source type</label><strong id="playlistType">—</strong></div><div class="detail"><label>Sync revision</label><strong id="revision">—</strong></div><div class="detail"><label>Last successful sync</label><strong id="syncedAt">—</strong></div><div class="tip">Playlist settings are received from the server. This simulator does not play streams or display credentials.</div></div>
-    <p class="err" id="err" role="alert"></p>
+  <header class="top"><div class="logo"><img class="app-icon" src="/static/tunely-icon.webp" alt=""><b>Tunely<span>TV</span></b></div><div class="tag">SECURE TV SETUP <span class="dot"></span></div></header>
+  <section class="showcase">
+    <div class="eyebrow" id="eyebrow">EASY SETUP · NO REMOTE TYPING</div>
+    <h1 id="statusHeading">Connect your TV.<br><span>Scan and you're in.</span></h1>
+    <p id="statusDesc">Use your phone to sign in, choose your authorized playlist and link this TV. Nothing needs to be typed on your TV.</p>
+    <div id="pairPanel" class="pair-layout">
+      <div class="qr-frame"><div class="qr-title">SCAN WITH YOUR PHONE CAMERA</div><div class="qr-shell"><img id="pairQr" alt="QR code to open secure TunelyTV TV activation on your phone" hidden><div id="qrLoading">Preparing your QR code…</div></div><span id="qrStatus" class="qr-footnote">A new, temporary pairing code is generated securely.</span></div>
+      <div class="pair-directions"><div class="step"><span>1</span><div><strong>Scan the QR code</strong><p>Open the link with your phone camera.</p></div></div><div class="step"><span>2</span><div><strong>Sign in to TunelyTV</strong><p>Use your existing account. No new account required.</p></div></div><div class="step"><span>3</span><div><strong>Choose your playlist</strong><p>Confirm this TV and your saved authorized source.</p></div></div><div class="fallback-title">Or enter this code on your phone</div><div class="code" id="pairCode">— — — —</div><p class="code-url" id="activationHint">Open the activation page on your phone</p><p class="code-meta" id="expires" role="status">Creating a code…</p><button class="action" id="startButton" type="button" disabled>Refresh pairing code ↻</button></div>
+    </div>
+    <div id="pairedPanel" hidden><div class="success"><span>✓</span><b>TV connected</b><small>Your account approved this TV. Playlist changes will sync automatically.</small></div><div class="detail"><label>Device</label><strong id="deviceName">—</strong></div><div class="detail"><label>Assigned playlist</label><strong id="playlistName">No playlist assigned</strong></div><div class="detail"><label>Source type</label><strong id="playlistType">—</strong></div><div class="detail"><label>Sync revision</label><strong id="revision">—</strong></div><div class="detail"><label>Last successful sync</label><strong id="syncedAt">—</strong></div><p class="tip">This browser page demonstrates pairing and sync. Native TV playback is planned for the Android TV application.</p></div>
+    <p id="err" class="err" role="alert"></p>
   </section>
-  <div class="bottom"><div><span class="dot"></span> <span id="connection">Waiting for device enrollment</span></div><div><a href="/" target="_blank" rel="noopener">Open web dashboard ↗</a> <button id="reset">Reset simulator</button></div></div>
+  <footer class="bottom"><div><span class="dot"></span><span id="connection" role="status">Initializing secure pairing…</span></div><div><span class="sim-label">Web TV pairing preview</span><button type="button" id="reset">Reset this device</button></div></footer>
 </main>
 <script src="/static/tv.js"></script>
 </body></html>

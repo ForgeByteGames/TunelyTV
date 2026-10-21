@@ -16,6 +16,19 @@
   const decodeName = name => String(name || '').trim().slice(0, 140);
   const safeUrl = value => { try { const u = new URL(value); return ['https:','http:'].includes(u.protocol) && !u.username && !u.password ? u.href : null; } catch { return null; } };
   const requestAllowed = href => !(location.protocol === 'https:' && href.startsWith('http:'));
+  // Same-origin authenticated XMLTV reader is allowed only for a saved
+  // M3U Plus playlist. An arbitrary external HTTP guide remains blocked.
+  const providerGuidePath = /^\/api\/playlists\/[0-9a-f-]{36}\/provider-guide$/i;
+  const safeGuideUrl = raw => {
+    const text=String(raw||'').trim();
+    if(providerGuidePath.test(text))return new URL(text,location.origin).href;
+    const external=safeUrl(text);
+    if(!external)return null;
+    const parsed=new URL(external);
+    if(parsed.origin===location.origin && providerGuidePath.test(parsed.pathname) && !parsed.search)return parsed.href;
+    return external;
+  };
+  const isInternalGuide = raw => {try{const u=new URL(raw,location.origin);return u.origin===location.origin && providerGuidePath.test(u.pathname) && !u.search;}catch{return false;}};
   const norm = s => String(s || '').trim().toLowerCase().replace(/\s+/g,' ');
   const hash = raw => { let h = 2166136261; for(let i=0;i<raw.length;i++){h ^= raw.charCodeAt(i);h = Math.imul(h,16777619);}return (h>>>0).toString(36); };
   const safeRead = key => { try { const x=JSON.parse(localStorage.getItem(key)||'[]'); return Array.isArray(x) ? x.filter(a=>typeof a==='string').slice(0,200) : []; } catch { return []; } };
@@ -53,8 +66,7 @@
       safeSave(favKey(),[...state.favorites]);safeSave(recentKey(),state.recent);
       state.cloudReady=true;renderChannels();renderGuide();updateFavoriteButton();
       updateSyncStatus('✓ Favorites & recents synced to this account.');
-      restoreRecentChannel(id); // Last watched is already saved server-side by the existing recent history API.
-    }catch(e){if(serial!==state.prefsSerial||id!==state.sourceId)return;state.cloudReady=false;updateSyncStatus('Cloud sync unavailable; showing browser preferences.');setNotice('Cloud preferences could not be loaded. '+e.message,'warn');restoreRecentChannel(id);}
+    }catch(e){if(serial!==state.prefsSerial||id!==state.sourceId)return;state.cloudReady=false;updateSyncStatus('Cloud sync unavailable; showing browser preferences.');setNotice('Cloud preferences could not be loaded. '+e.message,'warn');}
   }
   async function persistFavorite(channel,selected,sourceId){
     if(!cloudEnabled(sourceId))return;
@@ -123,21 +135,6 @@
     else scrollBrowser();
   });
   $('emptyBrowse').addEventListener('click',()=>window.TunelyGuideFocus?.open());
-  function updateIdlePanel(){
-    if(state.current)return;
-    const title=$('idleTitle'),subtitle=$('idleSubtitle');
-    if(!state.channels.length){title.textContent='Welcome to Live TV';subtitle.textContent='Your saved playlist will load here. Open the guide to browse your authorized channels.';return;}
-    const last=state.channels.find(ch=>cid(ch)===state.recent[0]);
-    title.textContent=last?'Resume '+last.name:'Your channels are ready';
-    subtitle.textContent=last?'Continue your last watched channel, or browse the TV guide.':state.channels.length+' channels available · Explore your guide to start watching.';
-  }
-  function restoreRecentChannel(sourceId){
-    // Never overwrite a channel the viewer tuned manually while cloud preferences were loading.
-    if(sourceId!==state.sourceId||!state.webPermitted||state.current||!state.channels.length)return;
-    const last=state.channels.find(ch=>cid(ch)===state.recent[0]);
-    if(last){playChannel(last,{automatic:true});}
-    else updateIdlePanel();
-  }
   $('closeMobileChannels').addEventListener('click',closeMobileChannels);
   $('channelBackdrop').addEventListener('click',closeMobileChannels);
   window.addEventListener('resize',()=>{if(!mobileChannels())closeMobileChannels();});
@@ -146,7 +143,7 @@
 
   function setSource(id){
     state.prefsSerial++;state.cloudReady=false;state.sourceId=id;state.favorites=new Set(safeRead(favKey()));state.recent=safeRead(recentKey());updateSyncStatus(cloudEnabled()?'Account playlist: loading cloud preferences…':'Local browser preferences.');
-    if(!id){state.favorites=new Set();state.recent=[];}renderChannels();updateIdlePanel();
+    if(!id){state.favorites=new Set();state.recent=[];}renderChannels();
   }
   function toggleFavorite(channel){
     if(!channel)return;
@@ -210,9 +207,9 @@
   function stop(){
     if(state.hls){state.hls.destroy();state.hls=null;}
     video.pause();video.removeAttribute('src');video.load();video.hidden=true;$('placeholder').hidden=false;
-    state.current=null;$('playingName').textContent='Live TV ready';$('playingStatus').textContent='Open guide to browse';updateFavoriteButton();renderChannels();renderAbout();renderGuide();renderMiniGuide();updateIdlePanel();
+    state.current=null;$('playingName').textContent='Select a channel';$('playingStatus').textContent='No stream selected';updateFavoriteButton();renderChannels();renderAbout();renderGuide();renderMiniGuide();
   }
-  function playChannel(ch,{automatic=false}={}){
+  function playChannel(ch){
     if(!state.webPermitted){setNotice('Web playback requires an eligible Plus trial or paid account. Open Account → Plans & Billing.','warn');return;}
     window.TunelyMultiView?.close();
     const href=safeUrl(ch.url);
@@ -220,26 +217,12 @@
     if(!requestAllowed(href)){setNotice('This stream uses HTTP, which browsers typically block on HTTPS websites. Ask your licensed provider for an HTTPS URL.','warn');return;}
     stop();state.current=ch;markRecent(ch);renderChannels();updateFavoriteButton();renderAbout();renderGuide();renderMiniGuide();resetTrackSettings();
     $('playingName').textContent=ch.name;$('playingStatus').textContent='Connecting…';$('placeholder').hidden=true;video.hidden=false;
-    if(!automatic&&mobileChannels()&&!window.TunelyGuideFocus?.isOpen()){closeMobileChannels();$('videoArea').scrollIntoView({behavior:'smooth',block:'start'});}
+    if(mobileChannels()&&!window.TunelyGuideFocus?.isOpen()){closeMobileChannels();$('videoArea').scrollIntoView({behavior:'smooth',block:'start'});}
     setNotice('Connecting directly to the source. '+warning);
-    const startPlaying=async()=>{
-      try{await video.play();}
-      catch{
-        if(automatic){
-          // Browsers often forbid sound-on autoplay. Prefer visible video muted,
-          // with an explicit notice to unmute, rather than leaving an empty screen.
-          video.muted=true;
-          try{await video.play();setNotice('Resumed '+ch.name+' with sound muted by browser autoplay policy. Use the volume button to unmute.','warn');return;}
-          catch{video.muted=false;}
-        }
-        $('playingStatus').textContent='Tap play to watch';
-        setNotice('Your last channel is ready. Press the video play control to begin. Some browsers require a tap before playing.','warn');
-      }
-    };
     const path=new URL(href).pathname.toLowerCase();
     const directMedia=/\.(mp4|m4v|webm|ogv|mov|mp3|aac)$/i.test(path);
     if(directMedia || video.canPlayType('application/vnd.apple.mpegurl')){
-      video.src=href;void startPlaying();
+      video.src=href;video.play().catch(()=>setNotice('Use the video controls to begin playback. Autoplay may be blocked.','warn'));
     } else if (window.Hls && window.Hls.isSupported()){
       let recovered=false;
       const player=new window.Hls({enableWorker:true,maxBufferLength:24,backBufferLength:15});state.hls=player;
@@ -250,7 +233,7 @@
         if(error.type===window.Hls.ErrorTypes.MEDIA_ERROR&&!recovered){recovered=true;player.recoverMediaError();}
       });
       player.loadSource(href);player.attachMedia(video);
-      player.on(window.Hls.Events.MANIFEST_PARSED,()=>{updateTrackSettings();void startPlaying();});
+      player.on(window.Hls.Events.MANIFEST_PARSED,()=>{updateTrackSettings();video.play().catch(()=>setNotice('Press play to start the stream. Your browser may block autoplay.','warn'));});
       player.on(window.Hls.Events.AUDIO_TRACKS_UPDATED,updateTrackSettings);
       player.on(window.Hls.Events.SUBTITLE_TRACKS_UPDATED,updateTrackSettings);
     } else {
@@ -331,8 +314,7 @@
     state.category='all';$('filter').value='';state.filter='all';quicks.forEach(x=>{const active=x.dataset.filter==='all';x.classList.toggle('active',active);x.setAttribute('aria-pressed',String(active));});
     renderCategories();renderChannels();renderGuide();$('sourceStatus').textContent=state.channels.length+' channels loaded · '+sourceText;
     setNotice('Loaded '+state.channels.length+' channels. Playback depends on permission, HTTPS/CORS access, and compatible codecs.');
-    if(!cloudEnabled(state.sourceId))restoreRecentChannel(state.sourceId);
-    void loadCloudPreferences(state.sourceId);renderMiniGuide();updateIdlePanel();
+    void loadCloudPreferences(state.sourceId);renderMiniGuide();
     // Companion (optional, rights-gated) logo resolver reacts to playlist loads.
     window.dispatchEvent(new CustomEvent('tunely:playlist-loaded')); 
   }
@@ -348,15 +330,17 @@
       if(!response.ok)throw new Error('Could not access this playlist (HTTP '+response.status+').');
       const data=await response.json();if(n!==state.requestId)return;
       if(!data.supported){$('sourceStatus').textContent='This source needs a compatible provider integration.';setNotice(data.message||'Provider login is not yet supported in this web player.','warn');return;}
-      const feed=data.type==='m3u_file' ? {channels:data.channels,epgCandidates:data.epg_candidates||[]} : await loadRemote(data.url);
+      let feed;
+      if(data.type==='m3u_file')feed={channels:data.channels,epgCandidates:data.epg_candidates||[]};
+      else if(data.type==='m3u_plus'){
+        const result=await fetch('/api/playlists/'+encodeURIComponent(id)+'/provider-channels',
+          {credentials:'same-origin',cache:'no-store'});
+        if(!result.ok){let msg='Provider channel list is unavailable.';try{msg=(await result.json()).detail||msg;}catch{}throw new Error(msg);}
+        feed=await result.json();
+      }else feed=await loadRemote(data.url);
       if(n!==state.requestId)return;
-      if(['movies','series'].includes(data.content_kind)){
-        applyChannels([],'VOD library');
-        setNotice('This source is saved as '+(data.content_kind==='movies'?'Movies':'TV Series')+'. Open the Movies or TV Series section on Home to play it.','warn');
-        return;
-      }
-      const liveChannels=feed.channels.filter(ch=>!/(?:^|\W)(?:s\d{1,2}e\d{1,3})(?:\W|$)/i.test(ch.name||'') && !/\b(?:vod|on[ -]?demand|films?|series|episodes?)\b/i.test(ch.group||'') && !/\/(?:movie|film|series|vod)\//i.test(ch.url||''));
-      applyChannels(liveChannels,'saved source');
+      applyChannels(feed.channels,'saved source');
+      if(feed.playback_note)setNotice(feed.playback_note,'warn');
       void useDetectedGuide(feed.epgCandidates||[],data.epg_url||null,n);
     }catch(err){if(n!==state.requestId)return;$('sourceStatus').textContent='Playlist unavailable';setNotice(err.message||'Unable to load playlist.','error');}
   }
@@ -426,7 +410,7 @@
     ev.target.value='';
   });
   function updateGuideUi(){
-    $('saveEpgUrl').disabled=!cloudEnabled();
+    $('saveEpgUrl').disabled=!cloudEnabled() || isInternalGuide(state.guideUrl);
     $('removeEpgUrl').disabled=!cloudEnabled() || !state.guideSaveId;
     if(!state.guideUrl)$('epgRefreshStatus').textContent='Automatic EPG: waiting for playlist metadata';
   }
@@ -442,7 +426,7 @@
       const buf=new Uint8Array(size);let off=0;for(const part of parts){buf.set(part,off);off+=part.length;}return buf;
     }
     try{
-      const response=await fetch(url,{credentials:'omit',mode:'cors',cache:'no-store',signal:ctl.signal});
+      const response=await fetch(url,{credentials:isInternalGuide(url)?'same-origin':'omit',mode:'cors',cache:'no-store',signal:ctl.signal});
       if(!response.ok)throw new Error('Guide server returned HTTP '+response.status);
       if(Number(response.headers.get('content-length')||0)>maxInput)throw new Error('Guide exceeds size limit');
       const bytes=await collect(response.body,maxInput);
@@ -455,7 +439,7 @@
   }
   let epgFetchCounter=0;
   async function loadRemoteEpg(automatic=false,quiet=false){
-    const url=safeUrl(state.guideUrl);if(!url)return false;
+    const url=safeGuideUrl(state.guideUrl);if(!url)return false;
     if(!requestAllowed(url)){$('epgRefreshStatus').textContent='Automatic EPG: HTTPS required on this website';return false;}
     const serial=++epgFetchCounter,source=state.sourceId;
     state.lastEpgRefresh=Date.now();
@@ -481,7 +465,7 @@
     }
   }
   async function useDetectedGuide(candidates,manualUrl,requestId){
-    const options=[...new Set((candidates||[]).map(safeUrl).filter(Boolean))].slice(0,3);
+    const options=[...new Set((candidates||[]).map(safeGuideUrl).filter(Boolean))].slice(0,3);
     state.detectedGuideUrls=options;
     if(manualUrl&&safeUrl(manualUrl)&&requestAllowed(manualUrl)){
       state.guideUrl=safeUrl(manualUrl);state.guideSaveId=state.sourceId;state.epgOrigin='manual';
@@ -509,7 +493,7 @@
     state.guideUrl=url;state.epgOrigin='manual';state.lastEpgRefresh=0;updateGuideUi();void loadRemoteEpg(false);
   });
   $('saveEpgUrl').addEventListener('click',async()=>{
-    if(!cloudEnabled()||!state.guideUrl){setNotice('Load a guide URL and choose a saved account playlist first.','warn');return;}
+    if(!cloudEnabled()||!state.guideUrl||isInternalGuide(state.guideUrl)){setNotice('Automatic provider guides do not need to be saved. Choose a manual HTTPS XMLTV URL to save an override.','warn');return;}
     const id=state.sourceId,url=state.guideUrl;
     try{await apiMutation('/api/playlists/'+encodeURIComponent(id)+'/guide','PATCH',{url});
       if(id===state.sourceId){state.guideSaveId=id;updateGuideUi();setNotice('Encrypted XMLTV URL saved with this account playlist. Guide is fetched only by your browser.');}
@@ -522,7 +506,8 @@
       if(id===state.sourceId){state.guideSaveId='';state.guideUrl='';state.epgOrigin='none';$('epgUrl').value='';updateGuideUi();void useDetectedGuide(state.detectedGuideUrls,null,state.requestId);setNotice('Manual guide removed. Provider-advertised automatic EPG will be used when available.');}
     }catch(err){setNotice('Unable to remove guide URL: '+err.message,'error');}
   });
-  // No server-side fetch and no background jobs. An open visible tab performs refresh.
+  // The guide refreshes while the tab is visible. M3U Plus guide metadata is
+  // retrieved from a bounded, authenticated server endpoint; streams are never proxied.
   setInterval(()=>{if(state.guideUrl&&document.visibilityState==='visible'&&Date.now()-state.lastEpgRefresh>=60*60*1000)void loadRemoteEpg(true);},60_000);
   document.addEventListener('visibilitychange',()=>{
     if(document.visibilityState==='visible'&&state.guideUrl&&Date.now()-state.lastEpgRefresh>=60*60*1000)void loadRemoteEpg(true);
@@ -551,7 +536,7 @@
     const current=state.current;
     if(current){const {live,next}=currentNext(current);
       $('miniCurrent').textContent='NOW · '+current.name+' · '+(live?live.title:'No guide data')+(next?' | NEXT · '+next.title:'');
-    }else $('miniCurrent').textContent=state.channels.length?'Browse '+state.channels.length+' channels to start watching.':'Load your saved playlist to browse channels.';
+    }else $('miniCurrent').textContent='Choose a channel to begin playback.';
     const channels=visibleChannels().slice(0,60);
     if(!channels.length){root.append(node('p','empty','Choose an authorized playlist to browse channels.'));return;}
     for(const ch of channels){
@@ -817,10 +802,10 @@
       state.webPermitted=true;document.body.classList.remove('license-web-locked');
       updateSyncStatus('Sign in confirmed. Your account can access supported web playback.');
       const response=await fetch('/api/playlists',{credentials:'same-origin',cache:'no-store'});if(!response.ok)throw new Error('Unable to load your account playlists.');
-      const data=await response.json();state.sources=(data.playlists||[]).filter(p=>!['movies','series'].includes(p.content_kind));
-      sourcePick.replaceChildren(new Option(state.sources.length?'Select a Live TV playlist':'No Live TV playlists yet',''));
+      const data=await response.json();state.sources=data.playlists||[];
+      sourcePick.replaceChildren(new Option(state.sources.length?'Select a saved playlist':'No saved playlists yet',''));
       state.sources.forEach(p=>sourcePick.add(new Option(p.name+' · '+p.type,p.id)));
-      $('sourceStatus').textContent=state.sources.length?'Restoring your last saved Live TV playlist…':'No Live TV sources yet. Movie/series sources appear on Home, not in the Live TV guide.';
+      $('sourceStatus').textContent=state.sources.length?'Restoring your last saved playlist…':'No playlists yet. Add one from the dashboard.';
       if(state.sources.length){
         let preferred='';
         try{

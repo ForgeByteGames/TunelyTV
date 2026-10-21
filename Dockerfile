@@ -9,7 +9,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends gosu \
  && useradd --uid 10001 --gid 10001 --home-dir /app tunely
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
-COPY server.py billing.py discovery.py licensing.py logo_catalog.py ./
+COPY server.py billing.py discovery.py licensing.py logo_catalog.py provider_metadata.py ./
 COPY site/ ./site/
 COPY railway-entrypoint.sh /usr/local/bin/tunely-entrypoint
 RUN chmod +x /usr/local/bin/tunely-entrypoint \
