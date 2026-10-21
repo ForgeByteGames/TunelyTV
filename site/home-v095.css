@@ -11,3 +11,7 @@ main{max-width:1660px;margin:auto;padding:0 3.4%}.hero{display:grid;grid-templat
 .rail.expanded{flex-wrap:wrap;max-height:none;overflow:visible;scroll-snap-type:none}.rail.expanded .rail-card{flex-basis:clamp(132px,12.5vw,194px)}
 
 .metadata-credits{flex:1 1 200px;max-width:350px;font-size:10px;color:#91a9c5;line-height:1.6}.metadata-credits[hidden]{display:none}.metadata-credits strong{color:#c2d5ec}.metadata-credits p{margin:4px 0}.metadata-credits a{color:#94cbff;text-decoration:underline;text-underline-offset:2px}
+
+/* v0.9.9: clear external service destination */
+.rail-card .service-outbound{display:block;margin:5px 1px 0;color:#87d9ff;font-size:10px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.provider-link{border:1px solid #3170af;text-decoration:none}.provider-link:hover{background:#164782;color:white}.service-row-head{align-items:center;gap:12px}

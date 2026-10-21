@@ -1,3 +1,11 @@
+# TunelyTV v0.10.0 — Playlist Movies/Series vs Where to Watch
+
+See [V0.10.0-PLAYLIST-LIBRARIES.md](V0.10.0-PLAYLIST-LIBRARIES.md) for source-type selection, use of an existing Sintel HLS URL, licensing precautions and deployment details.
+
+# TunelyTV v0.9.9 — Last Channel & Viewing Navigation
+
+New in v0.9.9: reopen the user's most recent channel per selected playlist, attempt playback (muted fallback where browser requires), improve empty-player copy, correctly open the TV guide from fullscreen, and add links to official external streaming-service sites from service discovery cards and detail panels. Provider links are service landing pages, **not exact title deep links**; TMDb does not supply those. Licensing, EPG, Multi-View and provider-logo logic from v0.9.8 remain intact. See `V0.9.9-PLAYER-AND-EXTERNAL-NAVIGATION.md`.
+
 # TunelyTV v0.9.8 — Live Guide Preview and Provider Logos
 
 New in v0.9.8: A live picture preview in the full-screen guide using the existing video player, HTTPS channel logos from the user's M3U/XMLTV metadata, and accessible XMLTV guide setup from within TV mode. See `V0.9.7-GUIDE-PREVIEW-AND-LOGOS.md`. This release retains v0.9.6 licensing and TMDb-ready code (TMDb remains disabled until commercial rights are secured).
