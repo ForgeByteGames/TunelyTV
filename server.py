@@ -142,6 +142,7 @@ class PlaylistNew(BaseModel):
     server: str | None = Field(default=None, max_length=4096)
     username: str | None = Field(default=None, max_length=256)
     password: str | None = Field(default=None, max_length=512)
+    content_kind: Literal['auto', 'live', 'movies', 'series'] = 'auto'
 
     @field_validator('name')
     @classmethod
@@ -149,6 +150,17 @@ class PlaylistNew(BaseModel):
         if not val.strip():
             raise ValueError('Playlist name required.')
         return val.strip()
+
+
+class ContentKindUpdate(BaseModel):
+    content_kind: Literal['auto', 'live', 'movies', 'series']
+
+
+class HiddenLibraryItem(BaseModel):
+    # Hash of a media URL, not a URL or provider password.
+    item_key: str = Field(pattern=r'^[a-f0-9]{64}$')
+    title: str = Field(min_length=1, max_length=180)
+    reason: Literal['unavailable', 'user_hidden'] = 'user_hidden'
 
 
 class DeviceNew(BaseModel):
@@ -267,8 +279,15 @@ def create_app(db_path: str | Path | None = None, key_path: str | Path | None = 
               channel_key TEXT NOT NULL, played_at INTEGER NOT NULL,
               PRIMARY KEY (owner_id, playlist_id, channel_key));
             CREATE INDEX IF NOT EXISTS idx_recent_channels ON recent_channels(owner_id, playlist_id, played_at DESC);
+            CREATE TABLE IF NOT EXISTS library_hidden_items (
+              owner_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+              playlist_id TEXT NOT NULL REFERENCES playlists(id) ON DELETE CASCADE,
+              item_key TEXT NOT NULL, title TEXT NOT NULL, reason TEXT NOT NULL,
+              hidden_at INTEGER NOT NULL,
+              PRIMARY KEY (owner_id, playlist_id, item_key));
+            CREATE INDEX IF NOT EXISTS idx_hidden_library_owner ON library_hidden_items(owner_id, playlist_id);
         ''')
-    app = FastAPI(title='TunelyTV Web Staging API', version='0.9.8', docs_url=None if prod else '/api/docs', redoc_url=None, openapi_url=None if prod else '/openapi.json')
+    app = FastAPI(title='TunelyTV Web Staging API', version='0.10.2', docs_url=None if prod else '/api/docs', redoc_url=None, openapi_url=None if prod else '/openapi.json')
     app.state.db_path = str(database_path)
     app.state.cipher = cipher
     app.state.production = prod
@@ -349,7 +368,7 @@ def create_app(db_path: str | Path | None = None, key_path: str | Path | None = 
 
     @app.get('/api/health')
     def health():
-        return {'status': 'ok', 'service': 'TunelyTV web staging', 'version': '0.9.10'}
+        return {'status': 'ok', 'service': 'TunelyTV web staging', 'version': '0.10.2'}
 
     @app.get('/api/features/multiview')
     def multiview_access(user=Depends(current_user)):
@@ -442,9 +461,12 @@ def create_app(db_path: str | Path | None = None, key_path: str | Path | None = 
     @app.get('/api/playlists')
     def playlists(user=Depends(current_user)):
         with db() as con:
-            rows = con.execute('''SELECT id, name, type, created_at FROM playlists
+            rows = con.execute('''SELECT id, name, type, created_at, config_encrypted FROM playlists
                 WHERE owner_id=? ORDER BY created_at DESC''', (user['user_id'],)).fetchall()
-        return {'playlists': [dict(x) for x in rows]}
+        return {'playlists': [{'id': x['id'], 'name': x['name'], 'type': x['type'],
+                'created_at': x['created_at'],
+                'content_kind': json.loads(cipher.decrypt(x['config_encrypted']).decode()).get('content_kind','auto')}
+                for x in rows]}
 
     @app.post('/api/playlists', status_code=201)
     def add_playlist(inp: PlaylistNew, user=Depends(csrf_user)):
@@ -470,6 +492,7 @@ def create_app(db_path: str | Path | None = None, key_path: str | Path | None = 
             if len(content.encode('utf-8')) > 1_000_000:
                 fail('M3U file must be smaller than 1 MB.')
             config = {'type': inp.type, 'filename': inp.filename, 'content': content}
+        config['content_kind'] = inp.content_kind
         with db() as con:
             count = con.execute('SELECT count(*) FROM playlists WHERE owner_id=?', (user['user_id'],)).fetchone()[0]
             if count >= 50:
@@ -478,7 +501,57 @@ def create_app(db_path: str | Path | None = None, key_path: str | Path | None = 
             con.execute('INSERT INTO playlists VALUES (?,?,?,?,?,?)',
                         (p_id, user['user_id'], inp.name, inp.type,
                          cipher.encrypt(json.dumps(config).encode()), now()))
-        return {'id': p_id, 'name': inp.name, 'type': inp.type}
+        return {'id': p_id, 'name': inp.name, 'type': inp.type, 'content_kind': inp.content_kind}
+
+    @app.patch('/api/playlists/{playlist_id}/content-kind')
+    def update_source_content_kind(playlist_id: str, inp: ContentKindUpdate, user=Depends(csrf_user)):
+        """Update the interpretation of an existing source without deleting it."""
+        with db() as con:
+            row = own_playlist(con, user['user_id'], playlist_id)
+            if not row:
+                fail('Playlist not found.', 404)
+            config = json.loads(cipher.decrypt(row['config_encrypted']).decode())
+            config['content_kind'] = inp.content_kind
+            con.execute('UPDATE playlists SET config_encrypted=? WHERE id=? AND owner_id=?',
+                        (cipher.encrypt(json.dumps(config).encode()), playlist_id, user['user_id']))
+        return {'id': playlist_id, 'content_kind': inp.content_kind}
+
+    @app.get('/api/library/hidden')
+    def list_hidden_library_items(user=Depends(current_user)):
+        # Titles alone are returned; URL and provider secrets are not stored.
+        with db() as con:
+            rows = con.execute('''SELECT playlist_id, item_key, title, reason, hidden_at
+                FROM library_hidden_items WHERE owner_id=? ORDER BY hidden_at DESC LIMIT 5000''',
+                (user['user_id'],)).fetchall()
+        return {'items': [dict(row) for row in rows]}
+
+    @app.post('/api/playlists/{playlist_id}/library-hidden', status_code=201)
+    def hide_library_item(playlist_id: str, inp: HiddenLibraryItem, user=Depends(csrf_user)):
+        with db() as con:
+            if not own_playlist(con, user['user_id'], playlist_id):
+                fail('Playlist not found.', 404)
+            total = con.execute('SELECT COUNT(*) FROM library_hidden_items WHERE owner_id=?',
+                                (user['user_id'],)).fetchone()[0]
+            already = con.execute('''SELECT 1 FROM library_hidden_items WHERE owner_id=?
+                AND playlist_id=? AND item_key=?''', (user['user_id'],playlist_id,inp.item_key)).fetchone()
+            if total >= 5000 and not already:
+                fail('Hidden-item limit reached.')
+            con.execute('''INSERT INTO library_hidden_items (owner_id,playlist_id,item_key,title,reason,hidden_at)
+                VALUES (?,?,?,?,?,?) ON CONFLICT(owner_id,playlist_id,item_key) DO UPDATE SET
+                title=excluded.title, reason=excluded.reason, hidden_at=excluded.hidden_at''',
+                (user['user_id'], playlist_id, inp.item_key, inp.title, inp.reason, now()))
+        return {'hidden': True, 'item_key': inp.item_key}
+
+    @app.delete('/api/playlists/{playlist_id}/library-hidden/{item_key}')
+    def restore_library_item(playlist_id: str, item_key: str, user=Depends(csrf_user)):
+        if not re.fullmatch(r'[a-f0-9]{64}', item_key):
+            fail('Invalid item key.')
+        with db() as con:
+            if not own_playlist(con, user['user_id'], playlist_id):
+                fail('Playlist not found.', 404)
+            con.execute('''DELETE FROM library_hidden_items WHERE owner_id=? AND playlist_id=?
+                AND item_key=?''', (user['user_id'], playlist_id, item_key))
+        return {'hidden': False, 'item_key': item_key}
 
     @app.get('/api/playlists/{playlist_id}/playable')
     def playlist_for_browser(playlist_id: str, user=Depends(current_user)):
@@ -496,19 +569,20 @@ def create_app(db_path: str | Path | None = None, key_path: str | Path | None = 
             if not account_access(con, user['user_id'])['web_playback']:
                 fail('Your plan does not include web playback. Start your 7-day Plus trial or choose a paid plan.', 403)
         config = json.loads(cipher.decrypt(row['config_encrypted']).decode())
+        kind_override = config.get('content_kind', 'auto')
         if row['type'] == 'xtream':
             return {'id': row['id'], 'name': row['name'], 'type': 'xtream',
-                    'supported': False, 'message': 'Xtream browser playback requires a separate, provider-compatible player integration. Credentials are not exposed.'}
+                    'supported': False, 'content_kind': kind_override, 'message': 'Xtream browser playback requires a separate, provider-compatible player integration. Credentials are not exposed.'}
         if row['type'] == 'm3u_url':
             # Recognized provider M3U Plus URLs are read as *metadata* by
             # authenticated account-only endpoints. Do not send embedded
             # provider username/password back in the playable config.
             if is_m3u_plus(config['url']):
                 return {'id': row['id'], 'name': row['name'], 'type': 'm3u_plus',
-                        'supported': True, 'epg_url': config.get('epg_url'),
+                        'supported': True, 'content_kind': kind_override, 'epg_url': config.get('epg_url'),
                         'epg_candidates': [], 'metadata_only': True}
             return {'id': row['id'], 'name': row['name'], 'type': row['type'],
-                    'supported': True, 'url': config['url'], 'epg_url': config.get('epg_url'),
+                    'supported': True, 'url': config['url'], 'content_kind': kind_override, 'epg_url': config.get('epg_url'),
                     'epg_candidates': []}
         # Strictly parsed only; do not fetch or proxy arbitrary user-controlled URLs.
         entries = []
@@ -517,6 +591,7 @@ def create_app(db_path: str | Path | None = None, key_path: str | Path | None = 
         current_tvg_id = ''
         current_tvg_name = ''
         current_logo = ''
+        current_media_hint = ''
         for line in config['content'].splitlines():
             line = line.strip()
             if line.startswith('#EXTINF:'):
@@ -536,6 +611,7 @@ def create_app(db_path: str | Path | None = None, key_path: str | Path | None = 
                 current_group = attrs.get('group-title', 'Other')[:140] or 'Other'
                 current_tvg_id = attrs.get('tvg-id', '')[:140]
                 current_tvg_name = attrs.get('tvg-name', '')[:140]
+                current_media_hint = (attrs.get('media-type') or attrs.get('tvg-type') or attrs.get('type') or '')[:48]
                 try:
                     candidate = attrs.get('tvg-logo', '')[:2048]
                     current_logo = valid_url(candidate) if candidate.startswith('https://') else ''
@@ -550,6 +626,7 @@ def create_app(db_path: str | Path | None = None, key_path: str | Path | None = 
                     current_tvg_id = ''
                     current_tvg_name = ''
                     current_logo = ''
+                    current_media_hint = ''
                     continue
                 if len(entries) >= 5000:
                     break
@@ -557,14 +634,15 @@ def create_app(db_path: str | Path | None = None, key_path: str | Path | None = 
                                 'url': source_url,
                                 'group': current_group,
                                 'tvgId': current_tvg_id, 'tvgName': current_tvg_name,
-                                'logo': current_logo})
+                                'logo': current_logo, 'mediaHint': current_media_hint})
                 current_name = None
                 current_group = 'Other'
                 current_tvg_id = ''
                 current_tvg_name = ''
                 current_logo = ''
+                current_media_hint = ''
         return {'id': row['id'], 'name': row['name'], 'type': 'm3u_file',
-                'supported': True, 'channels': entries, 'total': len(entries), 'epg_url': config.get('epg_url'),
+                'supported': True, 'content_kind': kind_override, 'channels': entries, 'total': len(entries), 'epg_url': config.get('epg_url'),
                 'epg_candidates': extract_m3u_epg_candidates(config['content'])}
 
     @app.get('/api/playlists/{playlist_id}/provider-channels')

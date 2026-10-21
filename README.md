@@ -1,3 +1,7 @@
+# TunelyTV v0.10.2 — Library + QR TV Pairing (corrective merge)
+
+This release preserves the v0.10.0/0.10.1 Movies & Series Library, playlist classification, and hidden-item cleanup while retaining QR device pairing and provider M3U Plus support. See `V0.10.2-QR-PAIRING-LIBRARY-MERGE.md`.
+
 # TunelyTV v0.9.10 — QR TV Pairing Preview
 
 For setup steps, security notes, and release limitations, see `V0.9.10-QR-TV-PAIRING.md`.

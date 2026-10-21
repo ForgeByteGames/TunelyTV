@@ -7,9 +7,7 @@
 .library-episode-list h3{width:100%;margin:0 0 2px;color:#d9e7fc;font-size:14px}
 .library-episode-button{border:1px solid #355679;background:#132943;color:#e7f5ff;border-radius:8px;padding:9px 11px;max-width:100%;font-size:12px;text-align:left}
 .library-episode-button:hover,.library-episode-button.selected{border-color:#25aaff;background:#164f8e}
-
-/* Non-destructive cleanup controls for unplayable or unwanted VOD entries */
-.library-management{max-width:1800px;margin:4px auto 25px;padding:0 3%;}
+.library-management{max-width:1800px;margin:4px auto 25px;padding:0 3%}
 .library-small-button{border:1px solid #275d85;border-radius:9px;padding:10px 13px;background:#102b45;color:#cbeaff;cursor:pointer;font-size:12px;font-weight:700}
 .library-small-button:hover,.library-small-button:focus-visible{border-color:#00cfff;background:#12406b}
 .library-hidden-row{display:flex;align-items:center;justify-content:space-between;gap:15px;padding:9px 0;border-bottom:1px solid #1c3857;color:#d5e9f7;font-size:13px}

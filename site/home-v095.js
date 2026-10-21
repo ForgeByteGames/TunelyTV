@@ -1,6 +1,7 @@
 (() => {
 'use strict';
 const by=id=>document.getElementById(id);
+const officialServices={Netflix:'https://www.netflix.com/', 'Prime Video':'https://www.primevideo.com/', 'Disney+':'https://www.disneyplus.com/', Hulu:'https://www.hulu.com/', Max:'https://www.max.com/', 'Apple TV+':'https://tv.apple.com/', Peacock:'https://www.peacocktv.com/', 'Paramount+':'https://www.paramountplus.com/'};
 const services=['Netflix','Prime Video','Disney+','Hulu','Max','Apple TV+','Peacock','Paramount+'];
 const states={movies:[],series:[],service:[],status:null,serviceName:'Netflix',region:'US'};
 const isDemo=Boolean(window.TUNELY_DEMO_PREVIEW);
@@ -15,17 +16,18 @@ function renderRail(id,items,empty){const root=by(id);root.replaceChildren();if(
  if(imgUrl){const img=make('img');img.src=imgUrl;img.alt='';img.loading='lazy';img.referrerPolicy='no-referrer';art.append(img);}
  const label=make('span','art-label',entry.title||'Untitled');art.append(label);btn.append(art);
  const sub=make('div','card-sub');sub.textContent=(entry.year?entry.year+' · ':'')+(entry.kind==='tv'?'Series':'Movie');btn.append(sub);
- btn.addEventListener('click',()=>openTitle(entry));root.append(btn);
+ btn.addEventListener('click',()=>{if(id==='serviceRail' && !entry.demo && officialServices[states.serviceName]){window.open(officialServices[states.serviceName],'_blank','noopener,noreferrer');}else openTitle(entry);});root.append(btn);
  }}
 function demoEntries(kind){return (demos[kind]||demos.movies).map((x,i)=>({id:i+1,title:x[0],year:x[1],kind:kind==='series'?'tv':'movie',demo:true}));}
 function showDemo(){states.movies=demoEntries('movies');states.series=demoEntries('series');states.service=demoEntries('movies').slice(0,7);renderRail('movieRail',states.movies,'');renderRail('seriesRail',states.series,'');renderRail('serviceRail',states.service,'');by('serviceRowLabel').textContent='Illustrative titles only';}
 const disabled='Title discovery is being prepared. No catalog or programming is included with TunelyTV.';
 async function boot(){
- if(isDemo){showDemo();return;}
- try{states.status=await api('status');if(states.status.enabled)by('metadataCredits').hidden=false;if(!states.status.enabled){for(const el of ['movieRail','seriesRail','serviceRail'])renderRail(el,[],disabled);return;}
- const response=await api('home?region=US');states.movies=response.movies||[];states.series=response.series||[];
- renderRail('movieRail',states.movies,'No movie discovery results right now.');renderRail('seriesRail',states.series,'No series discovery results right now.');await chooseService('Netflix');
- }catch(err){for(const el of ['movieRail','seriesRail','serviceRail'])renderRail(el,[],'Discovery temporarily unavailable. Try again later.');}
+  void window.TunelyLibrary?.load();
+  if(isDemo){states.service=demoEntries('movies').slice(0,7);renderRail('serviceRail',states.service,'');by('serviceRowLabel').textContent='Illustrative where-to-watch titles only';return;}
+  try{states.status=await api('status');if(states.status.enabled)by('metadataCredits').hidden=false;
+    if(!states.status.enabled){renderRail('serviceRail',[],'Title discovery is not enabled. Licensed metadata is required.');return;}
+    await chooseService('Netflix');
+  }catch{renderRail('serviceRail',[],'Where-to-watch discovery is temporarily unavailable.');}
 }
 const pills=by('servicePills');for(const name of services){const b=make('button','service-pill',name);b.type='button';b.dataset.service=name;b.classList.toggle('selected',name==='Netflix');b.addEventListener('click',()=>chooseService(name));pills.append(b);}
 async function chooseService(name){states.serviceName=name;by('serviceRowTitle').textContent='Explore on '+name;

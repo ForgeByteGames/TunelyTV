@@ -4,7 +4,7 @@ from server import create_app
 
 
 def client(tmp_path):
-    return TestClient(create_app(tmp_path / 'hidden.sqlite', tmp_path / 'fernet.key'))
+    return TestClient(create_app(tmp_path/'hidden.sqlite',tmp_path/'fernet.key'))
 
 
 def signup(c, address):
@@ -34,7 +34,6 @@ def test_hidden_items_persist_across_sessions_and_are_restorable(tmp_path):
     assert 'example.org' not in str(listing)
     assert listing[0]['playlist_id']==pid
     reinit=client(tmp_path)
-    # Log in again, confirms the records are durable not tab-local.
     login=reinit.post('/api/auth/login',json={'email':'hidden@example.com','password':'test-passphrase-very-long-123'})
     assert login.status_code==200
     headers2={'X-CSRF-Token':login.json()['csrf_token']}

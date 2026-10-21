@@ -66,7 +66,8 @@
       safeSave(favKey(),[...state.favorites]);safeSave(recentKey(),state.recent);
       state.cloudReady=true;renderChannels();renderGuide();updateFavoriteButton();
       updateSyncStatus('✓ Favorites & recents synced to this account.');
-    }catch(e){if(serial!==state.prefsSerial||id!==state.sourceId)return;state.cloudReady=false;updateSyncStatus('Cloud sync unavailable; showing browser preferences.');setNotice('Cloud preferences could not be loaded. '+e.message,'warn');}
+      restoreRecentChannel(id); // Server-side recents are already account scoped.
+    }catch(e){if(serial!==state.prefsSerial||id!==state.sourceId)return;state.cloudReady=false;updateSyncStatus('Cloud sync unavailable; showing browser preferences.');setNotice('Cloud preferences could not be loaded. '+e.message,'warn');restoreRecentChannel(id);}
   }
   async function persistFavorite(channel,selected,sourceId){
     if(!cloudEnabled(sourceId))return;
@@ -135,6 +136,21 @@
     else scrollBrowser();
   });
   $('emptyBrowse').addEventListener('click',()=>window.TunelyGuideFocus?.open());
+  function updateIdlePanel(){
+    if(state.current)return;
+    const title=$('idleTitle'),subtitle=$('idleSubtitle');
+    if(!title||!subtitle)return;
+    if(!state.channels.length){title.textContent='Welcome to Live TV';subtitle.textContent='Your saved playlist will load here. Open the guide to browse your authorized channels.';return;}
+    const last=state.channels.find(ch=>cid(ch)===state.recent[0]);
+    title.textContent=last?'Resume '+last.name:'Your channels are ready';
+    subtitle.textContent=last?'Continue your last watched channel, or browse the TV guide.':state.channels.length+' channels available · Explore your guide to start watching.';
+  }
+  function restoreRecentChannel(sourceId){
+    // Do not replace a channel that the viewer selected while preferences loaded.
+    if(sourceId!==state.sourceId||!state.webPermitted||state.current||!state.channels.length)return;
+    const last=state.channels.find(ch=>cid(ch)===state.recent[0]);
+    if(last)playChannel(last,{automatic:true});else updateIdlePanel();
+  }
   $('closeMobileChannels').addEventListener('click',closeMobileChannels);
   $('channelBackdrop').addEventListener('click',closeMobileChannels);
   window.addEventListener('resize',()=>{if(!mobileChannels())closeMobileChannels();});
@@ -143,7 +159,7 @@
 
   function setSource(id){
     state.prefsSerial++;state.cloudReady=false;state.sourceId=id;state.favorites=new Set(safeRead(favKey()));state.recent=safeRead(recentKey());updateSyncStatus(cloudEnabled()?'Account playlist: loading cloud preferences…':'Local browser preferences.');
-    if(!id){state.favorites=new Set();state.recent=[];}renderChannels();
+    if(!id){state.favorites=new Set();state.recent=[];}renderChannels();updateIdlePanel();
   }
   function toggleFavorite(channel){
     if(!channel)return;
@@ -207,9 +223,9 @@
   function stop(){
     if(state.hls){state.hls.destroy();state.hls=null;}
     video.pause();video.removeAttribute('src');video.load();video.hidden=true;$('placeholder').hidden=false;
-    state.current=null;$('playingName').textContent='Select a channel';$('playingStatus').textContent='No stream selected';updateFavoriteButton();renderChannels();renderAbout();renderGuide();renderMiniGuide();
+    state.current=null;$('playingName').textContent='Live TV ready';$('playingStatus').textContent='Open guide to browse';updateFavoriteButton();renderChannels();renderAbout();renderGuide();renderMiniGuide();updateIdlePanel();
   }
-  function playChannel(ch){
+  function playChannel(ch,{automatic=false}={}){
     if(!state.webPermitted){setNotice('Web playback requires an eligible Plus trial or paid account. Open Account → Plans & Billing.','warn');return;}
     window.TunelyMultiView?.close();
     const href=safeUrl(ch.url);
@@ -217,12 +233,24 @@
     if(!requestAllowed(href)){setNotice('This stream uses HTTP, which browsers typically block on HTTPS websites. Ask your licensed provider for an HTTPS URL.','warn');return;}
     stop();state.current=ch;markRecent(ch);renderChannels();updateFavoriteButton();renderAbout();renderGuide();renderMiniGuide();resetTrackSettings();
     $('playingName').textContent=ch.name;$('playingStatus').textContent='Connecting…';$('placeholder').hidden=true;video.hidden=false;
-    if(mobileChannels()&&!window.TunelyGuideFocus?.isOpen()){closeMobileChannels();$('videoArea').scrollIntoView({behavior:'smooth',block:'start'});}
+    if(!automatic&&mobileChannels()&&!window.TunelyGuideFocus?.isOpen()){closeMobileChannels();$('videoArea').scrollIntoView({behavior:'smooth',block:'start'});}
     setNotice('Connecting directly to the source. '+warning);
+    const startPlaying=async()=>{
+      try{await video.play();}
+      catch{
+        if(automatic){
+          video.muted=true;
+          try{await video.play();setNotice('Resumed '+ch.name+' muted by browser autoplay policy. Unmute in the video controls.','warn');return;}
+          catch{video.muted=false;}
+        }
+        $('playingStatus').textContent='Tap play to watch';
+        setNotice('Press video play to begin watching. Browsers may require a tap.','warn');
+      }
+    };
     const path=new URL(href).pathname.toLowerCase();
     const directMedia=/\.(mp4|m4v|webm|ogv|mov|mp3|aac)$/i.test(path);
     if(directMedia || video.canPlayType('application/vnd.apple.mpegurl')){
-      video.src=href;video.play().catch(()=>setNotice('Use the video controls to begin playback. Autoplay may be blocked.','warn'));
+      video.src=href;void startPlaying();
     } else if (window.Hls && window.Hls.isSupported()){
       let recovered=false;
       const player=new window.Hls({enableWorker:true,maxBufferLength:24,backBufferLength:15});state.hls=player;
@@ -233,7 +261,7 @@
         if(error.type===window.Hls.ErrorTypes.MEDIA_ERROR&&!recovered){recovered=true;player.recoverMediaError();}
       });
       player.loadSource(href);player.attachMedia(video);
-      player.on(window.Hls.Events.MANIFEST_PARSED,()=>{updateTrackSettings();video.play().catch(()=>setNotice('Press play to start the stream. Your browser may block autoplay.','warn'));});
+      player.on(window.Hls.Events.MANIFEST_PARSED,()=>{updateTrackSettings();void startPlaying();});
       player.on(window.Hls.Events.AUDIO_TRACKS_UPDATED,updateTrackSettings);
       player.on(window.Hls.Events.SUBTITLE_TRACKS_UPDATED,updateTrackSettings);
     } else {
@@ -314,7 +342,8 @@
     state.category='all';$('filter').value='';state.filter='all';quicks.forEach(x=>{const active=x.dataset.filter==='all';x.classList.toggle('active',active);x.setAttribute('aria-pressed',String(active));});
     renderCategories();renderChannels();renderGuide();$('sourceStatus').textContent=state.channels.length+' channels loaded · '+sourceText;
     setNotice('Loaded '+state.channels.length+' channels. Playback depends on permission, HTTPS/CORS access, and compatible codecs.');
-    void loadCloudPreferences(state.sourceId);renderMiniGuide();
+    if(!cloudEnabled(state.sourceId))restoreRecentChannel(state.sourceId);
+    void loadCloudPreferences(state.sourceId);renderMiniGuide();updateIdlePanel();
     // Companion (optional, rights-gated) logo resolver reacts to playlist loads.
     window.dispatchEvent(new CustomEvent('tunely:playlist-loaded')); 
   }
@@ -339,7 +368,13 @@
         feed=await result.json();
       }else feed=await loadRemote(data.url);
       if(n!==state.requestId)return;
-      applyChannels(feed.channels,'saved source');
+      if(['movies','series'].includes(data.content_kind)){
+        applyChannels([],'VOD library');
+        setNotice('This source is saved as '+(data.content_kind==='movies'?'Movies':'TV Series')+'. Open Home to view your library.','warn');
+        return;
+      }
+      const liveChannels=(feed.channels||[]).filter(ch=>!/(?:^|\W)(?:s\d{1,2}e\d{1,3})(?:\W|$)/i.test(ch.name||'')&&!/\b(?:vod|on[ -]?demand|films?|series|episodes?)\b/i.test(ch.group||'')&&!/\/(?:movie|film|series|vod)\//i.test(ch.url||''));
+      applyChannels(liveChannels,'saved source');
       if(feed.playback_note)setNotice(feed.playback_note,'warn');
       void useDetectedGuide(feed.epgCandidates||[],data.epg_url||null,n);
     }catch(err){if(n!==state.requestId)return;$('sourceStatus').textContent='Playlist unavailable';setNotice(err.message||'Unable to load playlist.','error');}
@@ -536,7 +571,7 @@
     const current=state.current;
     if(current){const {live,next}=currentNext(current);
       $('miniCurrent').textContent='NOW · '+current.name+' · '+(live?live.title:'No guide data')+(next?' | NEXT · '+next.title:'');
-    }else $('miniCurrent').textContent='Choose a channel to begin playback.';
+    }else $('miniCurrent').textContent=state.channels.length?'Browse '+state.channels.length+' channels to start watching.':'Load your saved playlist to browse channels.';
     const channels=visibleChannels().slice(0,60);
     if(!channels.length){root.append(node('p','empty','Choose an authorized playlist to browse channels.'));return;}
     for(const ch of channels){
@@ -802,7 +837,7 @@
       state.webPermitted=true;document.body.classList.remove('license-web-locked');
       updateSyncStatus('Sign in confirmed. Your account can access supported web playback.');
       const response=await fetch('/api/playlists',{credentials:'same-origin',cache:'no-store'});if(!response.ok)throw new Error('Unable to load your account playlists.');
-      const data=await response.json();state.sources=data.playlists||[];
+      const data=await response.json();state.sources=(data.playlists||[]).filter(p=>!['movies','series'].includes(p.content_kind));
       sourcePick.replaceChildren(new Option(state.sources.length?'Select a saved playlist':'No saved playlists yet',''));
       state.sources.forEach(p=>sourcePick.add(new Option(p.name+' · '+p.type,p.id)));
       $('sourceStatus').textContent=state.sources.length?'Restoring your last saved playlist…':'No playlists yet. Add one from the dashboard.';
