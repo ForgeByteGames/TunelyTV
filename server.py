@@ -21,6 +21,7 @@ from uuid import uuid4
 from billing import install_billing
 from discovery import install_discovery
 from licensing import account_access, install_licensing
+from logo_catalog import install_logo_catalog
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError, VerificationError
 from cryptography.fernet import Fernet
@@ -263,7 +264,7 @@ def create_app(db_path: str | Path | None = None, key_path: str | Path | None = 
               PRIMARY KEY (owner_id, playlist_id, channel_key));
             CREATE INDEX IF NOT EXISTS idx_recent_channels ON recent_channels(owner_id, playlist_id, played_at DESC);
         ''')
-    app = FastAPI(title='TunelyTV Web Staging API', version='0.9.6', docs_url=None if prod else '/api/docs', redoc_url=None, openapi_url=None if prod else '/openapi.json')
+    app = FastAPI(title='TunelyTV Web Staging API', version='0.9.8', docs_url=None if prod else '/api/docs', redoc_url=None, openapi_url=None if prod else '/openapi.json')
     app.state.db_path = str(database_path)
     app.state.cipher = cipher
     app.state.production = prod
@@ -327,11 +328,14 @@ def create_app(db_path: str | Path | None = None, key_path: str | Path | None = 
         response.headers['X-Frame-Options'] = 'DENY'
         response.headers['Referrer-Policy'] = 'no-referrer'
         response.headers['Cache-Control'] = 'no-store'
-        response.headers['Content-Security-Policy'] = "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' https://cdn.jsdelivr.net; connect-src 'self' https: http:; media-src 'self' https: http: blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"
+        response.headers['Content-Security-Policy'] = "default-src 'self'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; script-src 'self' https://cdn.jsdelivr.net; connect-src 'self' https: http:; media-src 'self' https: http: blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"
         response.headers['X-Robots-Tag'] = 'noindex, nofollow, noarchive'
         if prod:
             response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
         return response
+
+    install_logo_catalog(app, current_user=current_user, csrf_user=csrf_user,
+                         throttle=throttle, db=db, account_access=account_access)
 
     # Install license tables before any request and any billing migrations.
     # Billing tables are created at module install further down, so run after.
@@ -341,7 +345,7 @@ def create_app(db_path: str | Path | None = None, key_path: str | Path | None = 
 
     @app.get('/api/health')
     def health():
-        return {'status': 'ok', 'service': 'TunelyTV web staging', 'version': '0.9.6'}
+        return {'status': 'ok', 'service': 'TunelyTV web staging', 'version': '0.9.8'}
 
     @app.get('/api/features/multiview')
     def multiview_access(user=Depends(current_user)):
@@ -501,11 +505,12 @@ def create_app(db_path: str | Path | None = None, key_path: str | Path | None = 
         current_group = 'Other'
         current_tvg_id = ''
         current_tvg_name = ''
+        current_logo = ''
         for line in config['content'].splitlines():
             line = line.strip()
             if line.startswith('#EXTINF:'):
                 # Split at the first comma outside quoted attributes; a group-title
-                # can contain a comma. Do not return untrusted logos or arbitrary HTML.
+                # can contain a comma. Logos remain untrusted URL strings, never HTML.
                 in_quote = False
                 comma = -1
                 for index, char in enumerate(line):
@@ -520,6 +525,11 @@ def create_app(db_path: str | Path | None = None, key_path: str | Path | None = 
                 current_group = attrs.get('group-title', 'Other')[:140] or 'Other'
                 current_tvg_id = attrs.get('tvg-id', '')[:140]
                 current_tvg_name = attrs.get('tvg-name', '')[:140]
+                try:
+                    candidate = attrs.get('tvg-logo', '')[:2048]
+                    current_logo = valid_url(candidate) if candidate.startswith('https://') else ''
+                except ValueError:
+                    current_logo = ''
             elif line and not line.startswith('#'):
                 try:
                     source_url = valid_url(line)
@@ -528,17 +538,20 @@ def create_app(db_path: str | Path | None = None, key_path: str | Path | None = 
                     current_group = 'Other'
                     current_tvg_id = ''
                     current_tvg_name = ''
+                    current_logo = ''
                     continue
                 if len(entries) >= 5000:
                     break
                 entries.append({'name': current_name or 'Channel ' + str(len(entries) + 1),
                                 'url': source_url,
                                 'group': current_group,
-                                'tvgId': current_tvg_id, 'tvgName': current_tvg_name})
+                                'tvgId': current_tvg_id, 'tvgName': current_tvg_name,
+                                'logo': current_logo})
                 current_name = None
                 current_group = 'Other'
                 current_tvg_id = ''
                 current_tvg_name = ''
+                current_logo = ''
         return {'id': row['id'], 'name': row['name'], 'type': 'm3u_file',
                 'supported': True, 'channels': entries, 'total': len(entries), 'epg_url': config.get('epg_url'),
                 'epg_candidates': extract_m3u_epg_candidates(config['content'])}

@@ -9,3 +9,5 @@ main{max-width:1660px;margin:auto;padding:0 3.4%}.hero{display:grid;grid-templat
 @media(max-width:430px){.account-pill{font-size:10px}.hero-visual{height:165px;min-height:165px}.hero-tv{transform:perspective(700px) rotateY(-6deg) scale(.75)}.hero-actions{gap:7px}.primary-btn,.secondary-btn{font-size:10px;padding:11px 12px}.category-grid{grid-template-columns:repeat(4,minmax(0,1fr))}.category-card{aspect-ratio:1;min-height:75px}.category-card b{font-size:9px}.rail-card{flex-basis:139px}.plan{padding:13px}.price{font-size:21px}.section-title a,.text-link{font-size:10px}}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}.primary-btn,.secondary-btn{transition:none}}
 .rail.expanded{flex-wrap:wrap;max-height:none;overflow:visible;scroll-snap-type:none}.rail.expanded .rail-card{flex-basis:clamp(132px,12.5vw,194px)}
+
+.metadata-credits{flex:1 1 200px;max-width:350px;font-size:10px;color:#91a9c5;line-height:1.6}.metadata-credits[hidden]{display:none}.metadata-credits strong{color:#c2d5ec}.metadata-credits p{margin:4px 0}.metadata-credits a{color:#94cbff;text-decoration:underline;text-underline-offset:2px}

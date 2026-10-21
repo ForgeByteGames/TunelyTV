@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#080f1c">
 <meta name="robots" content="noindex,nofollow">
 <meta name="description" content="TunelyTV private web player for user-provided authorized streams.">
-<title>TunelyTV — Live TV v0.9.6</title>
+<title>TunelyTV — Live TV v0.9.7</title>
 <link rel="stylesheet" href="/static/watch.css">
 <link rel="stylesheet" href="/static/epg-grid.css">
 <link rel="stylesheet" href="/static/watch-v07.css">
@@ -16,6 +16,8 @@
 <link rel="stylesheet" href="/static/auto-epg-v094.css">
 <link rel="stylesheet" href="/static/blue-shell-v095.css">
 <link rel="stylesheet" href="/static/license-v096.css">
+<link rel="stylesheet" href="/static/guide-preview-v097.css">
+<link rel="stylesheet" href="/static/logo-match-v098.css">
 </head>
 <body class="tv-mode-v095">
 <div class="app-shell">
@@ -122,19 +124,35 @@
 <section id="theaterGuide" class="theater-guide" role="dialog" aria-modal="true" aria-label="Full-screen television guide" hidden tabindex="-1">
   <header class="gf-bar">
     <div class="gf-brand"><span class="gf-icon" aria-hidden="true">▶</span><strong>tunely<span>TV</span></strong><small>GUIDE</small></div>
-    <div class="gf-bar-actions"><button type="button" id="gfWatch" class="gf-watch">▶ Watch TV</button><button type="button" id="gfClose" class="gf-close" aria-label="Close TV guide">✕ <span>Close</span></button></div>
+    <div class="gf-bar-actions"><button type="button" id="gfGuideSettings" class="gf-guide-settings" aria-expanded="false" aria-controls="gfSetupPanel">Guide setup</button><button type="button" id="gfWatch" class="gf-watch">▶ Watch TV</button><button type="button" id="gfClose" class="gf-close" aria-label="Close TV guide">✕ <span>Close</span></button></div>
   </header>
   <div class="gf-details" aria-live="polite">
-    <div class="gf-art" aria-hidden="true"><span class="gf-art-play">▶</span><span>YOUR GUIDE</span></div>
+    <div class="gf-art" id="gfArt" aria-label="Current channel live video preview">
+      <div class="gf-art-empty" id="gfArtEmpty" aria-hidden="true"><span class="gf-art-play">▶</span><span>YOUR GUIDE</span></div>
+      <div id="gfPreviewSlot" class="gf-preview-slot"></div>
+      <span id="gfPreviewState" class="gf-preview-state" hidden>LIVE PREVIEW</span>
+    </div>
     <div class="gf-copy"><div class="gf-eyebrow" id="gfLabel">YOUR TV GUIDE</div><h2 id="gfTitle">Select a channel</h2><div class="gf-meta"><span id="gfChannel">Choose a channel below</span><span id="gfTiming"></span></div><p id="gfDesc">Browse channels in the guide without scrolling past the video player. Listings come only from an authorized XMLTV source.</p><div class="gf-progress" id="gfProgress" hidden><span id="gfProgressFill"></span></div></div>
   </div>
   <div class="gf-controls"><div class="gf-source-group"><label class="sr-only" for="gfSource">Playlist</label><select id="gfSource" aria-label="Choose playlist"><option>Loading playlist…</option></select><label class="sr-only" for="gfSearch">Search channels</label><input id="gfSearch" type="search" autocomplete="off" placeholder="⌕ Search channels" aria-label="Search channels"></div><div class="gf-control-buttons"><button type="button" id="gfFavorite" aria-pressed="false">♡ Favorites</button><button type="button" id="gfEarlier">‹ Earlier</button><button type="button" id="gfNow" class="gf-active">● Now</button><button type="button" id="gfLater">Later ›</button></div></div>
   <div id="gfViewport" class="gf-viewport" aria-label="Channel schedule"></div>
+  <div id="gfSetupPanel" class="gf-setup-panel" role="region" aria-label="Provider TV guide setup" hidden>
+    <div class="gf-setup-header"><div><strong>Guide setup</strong><p>Add an authorized XMLTV URL or file if your playlist does not include one. TunelyTV never invents schedules.</p></div><button type="button" id="gfSetupClose" aria-label="Close guide setup">✕</button></div>
+    <div id="gfSetupContent"></div>
+    <div class="gf-logo-lookup" id="gfLogoLookup" aria-label="Automatic channel images">
+      <strong>Automatic channel logos</strong>
+      <p id="gfLogoStatus" role="status">Checking whether an approved external logo directory is configured…</p>
+      <button id="gfLogoRefresh" type="button" hidden>Refresh missing logos</button>
+      <small>Playlist logos take priority, followed by XMLTV icons. External search requires permission for third-party artwork and is disabled by default. TunelyTV does not download, bundle, or host broadcaster logos.</small>
+    </div>
+  </div>
   <footer class="gf-footer"><span id="gfStatus">Select a channel to watch. No channels or programs are supplied by TunelyTV.</span><span>↑↓ Browse · / Search · G or Esc Close</span></footer>
 </section>
 <script src="https://cdn.jsdelivr.net/npm/hls.js@1.7.3/dist/hls.min.js" defer></script>
 <script src="/static/watch.js" defer></script>
 <script src="/static/multiview.js" defer></script>
 <script src="/static/guide-focus-v093.js" defer></script>
+<script src="/static/guide-preview-v097.js" defer></script>
+<script src="/static/logo-match-v098.js" defer></script>
 </body>
 </html>

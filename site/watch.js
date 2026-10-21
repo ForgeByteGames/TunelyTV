@@ -9,7 +9,7 @@
   const tabs = [...document.querySelectorAll('[data-tab]')];
   const quicks = [...document.querySelectorAll('[data-filter]')];
   const localPreview = location.protocol === 'file:';
-  const state = { sources: [], channels: [], current: null, sourceId: '', filter: 'all', category: 'all', favorites: new Set(), recent: [], programs: new Map(), guideChannels: new Map(), hls: null, requestId: 0, localEntries: [], guideView: 'grid', guideStart: Math.floor(Date.now()/1800000)*1800000, gridLimit: 120, loggedIn:false, webPermitted:localPreview, prefsSerial:0, guideUrl:'', guideSaveId:'', lastEpgRefresh:0, detectedGuideUrls:[], localGuideUrls:[], epgOrigin:'none', cloudReady:false, activeDetail:null };
+  const state = { sources: [], channels: [], current: null, sourceId: '', filter: 'all', category: 'all', favorites: new Set(), recent: [], programs: new Map(), guideChannels: new Map(), guideLogos: new Map(), hls: null, requestId: 0, localEntries: [], guideView: 'grid', guideStart: Math.floor(Date.now()/1800000)*1800000, gridLimit: 120, loggedIn:false, webPermitted:localPreview, prefsSerial:0, guideUrl:'', guideSaveId:'', lastEpgRefresh:0, detectedGuideUrls:[], localGuideUrls:[], epgOrigin:'none', cloudReady:false, activeDetail:null };
 
   const warning = 'Playback requires HTTPS, provider browser/CORS permission, and a compatible codec. TunelyTV does not supply, proxy, or restream any content.';
   const setNotice = (text, kind='') => { const n=$('notice'); n.textContent=text; n.className='notice'+(kind?' '+kind:''); };
@@ -66,6 +66,34 @@
     catch(e){if(sourceId===state.sourceId)updateSyncStatus('Recent-channel cloud save failed; browser history is intact.');}
   }
   const logoText = name => (name||'TV').trim().split(/\s+/).slice(0,2).map(x=>x[0]||'').join('').toUpperCase().slice(0,2);
+  // Treat playlist and XMLTV logo links as untrusted data. Never embed HTML or
+  // fetch through our servers. HTTPS only; text initials remain when unavailable.
+  const safeLogo = value => {
+    const raw=String(value||'').trim();
+    if(!raw||raw.length>2048)return '';
+    const url=safeUrl(raw);
+    return url&&url.startsWith('https://')?url:'';
+  };
+  function logoFor(ch){
+    if(ch.logo)return safeLogo(ch.logo);
+    const guideId=ch.tvgId||state.guideChannels.get(norm(ch.tvgName))||state.guideChannels.get(norm(ch.name));
+    return safeLogo(state.guideLogos.get(guideId))||safeLogo(ch.externalLogo);
+  }
+  function channelAvatar(ch, css){
+    const wrap=node('span',css);
+    const fallback=node('span','channel-avatar-fallback',logoText(ch.name));
+    wrap.append(fallback);
+    const url=logoFor(ch);
+    if(url){
+      const img=document.createElement('img');img.className='channel-avatar-image';
+      img.loading='lazy';img.decoding='async';img.referrerPolicy='no-referrer';
+      img.alt='';img.hidden=true;
+      img.addEventListener('load',()=>{img.hidden=false;fallback.hidden=true;});
+      img.addEventListener('error',()=>{img.remove();fallback.hidden=false;});
+      img.src=url;wrap.append(img);
+    }
+    return wrap;
+  }
   const node = (tag, css, text) => { const el=document.createElement(tag); if(css)el.className=css; if(text!==undefined)el.textContent=text; return el; };
 
   function setTab(which){
@@ -151,7 +179,7 @@
     }
     const fragment=document.createDocumentFragment();
     for(const ch of filtered.slice(0,900)){
-      const ico=node('span','channel-icon',logoText(ch.name));ico.setAttribute('aria-hidden','true');
+      const ico=channelAvatar(ch,'channel-icon');ico.setAttribute('aria-hidden','true');
       const info=node('div','channel-info');info.append(node('strong','channel-name',ch.name),node('small','channel-group',ch.group||'Other'));
       const play=node('button','channel-play','');play.type='button';play.className='channel'; // replace wrapper with actual button for keyboard
       play.append(ico,info);if(state.current&&cid(state.current)===cid(ch))play.classList.add('selected');
@@ -210,7 +238,7 @@
 
   function parseAttributes(extinf){
     const result={};const patt=/([A-Za-z][A-Za-z0-9-]*)\s*=\s*"([^"]*)"/g;let match;
-    while((match=patt.exec(extinf)))result[match[1].toLowerCase()]=match[2].slice(0,160);
+    while((match=patt.exec(extinf))){const key=match[1].toLowerCase();result[key]=match[2].slice(0,key==='tvg-logo'?2048:160);}
     return result;
   }
   // Only use XMLTV links explicitly advertised in the user's own M3U header.
@@ -236,10 +264,10 @@
       if(line.startsWith('#EXTINF:')){
         let quoted=false, comma=-1; for(let i=0;i<line.length;i++){if(line[i]==='\"')quoted=!quoted;else if(line[i]===','&&!quoted){comma=i;break;}}
         const att=parseAttributes(comma<0?line:line.slice(0,comma));
-        meta={name:decodeName(comma>=0?line.slice(comma+1):att['tvg-name']),group:decodeName(att['group-title']||'Other'),tvgId:decodeName(att['tvg-id']||''),tvgName:decodeName(att['tvg-name']||'')};
+        meta={name:decodeName(comma>=0?line.slice(comma+1):att['tvg-name']),group:decodeName(att['group-title']||'Other'),tvgId:decodeName(att['tvg-id']||''),tvgName:decodeName(att['tvg-name']||''),logo:safeLogo(att['tvg-logo'])};
       } else if(line && !line.startsWith('#')){
         const url=safeUrl(line);
-        if(url)results.push({name:(meta?.name||'Channel '+(results.length+1)),url,group:meta?.group||'Other',tvgId:meta?.tvgId||'',tvgName:meta?.tvgName||''});
+        if(url)results.push({name:(meta?.name||'Channel '+(results.length+1)),url,group:meta?.group||'Other',tvgId:meta?.tvgId||'',tvgName:meta?.tvgName||'',logo:meta?.logo||''});
         meta=null;if(results.length>=5000)break;
       }
     }
@@ -269,15 +297,17 @@
     const channels=parseM3U(raw);if(!channels.length)throw new Error('No playable HTTP(S) entries were found in that playlist.');return {channels,epgCandidates:discoverM3uGuideUrls(raw)};
   }
   function applyChannels(channels, sourceText){
-    state.channels=channels.slice(0,5000).map((ch,i)=>({name:decodeName(ch.name)||'Channel '+(i+1),url:safeUrl(ch.url)||'',group:decodeName(ch.group||'Other')||'Other',tvgId:decodeName(ch.tvgId||''),tvgName:decodeName(ch.tvgName||'')})).filter(c=>c.url);
+    state.channels=channels.slice(0,5000).map((ch,i)=>({name:decodeName(ch.name)||'Channel '+(i+1),url:safeUrl(ch.url)||'',group:decodeName(ch.group||'Other')||'Other',tvgId:decodeName(ch.tvgId||''),tvgName:decodeName(ch.tvgName||''),logo:safeLogo(ch.logo)})).filter(c=>c.url);
     state.category='all';$('filter').value='';state.filter='all';quicks.forEach(x=>{const active=x.dataset.filter==='all';x.classList.toggle('active',active);x.setAttribute('aria-pressed',String(active));});
     renderCategories();renderChannels();renderGuide();$('sourceStatus').textContent=state.channels.length+' channels loaded · '+sourceText;
     setNotice('Loaded '+state.channels.length+' channels. Playback depends on permission, HTTPS/CORS access, and compatible codecs.');
     void loadCloudPreferences(state.sourceId);renderMiniGuide();
+    // Companion (optional, rights-gated) logo resolver reacts to playlist loads.
+    window.dispatchEvent(new CustomEvent('tunely:playlist-loaded')); 
   }
   async function loadSource(id){
     window.TunelyMultiView?.close();
-    const n=++state.requestId;epgFetchCounter++;stop();state.channels=[];state.programs=new Map();state.guideChannels=new Map();state.activeDetail=null;$('epgStatus').textContent='No guide selected';state.guideUrl='';state.guideSaveId='';state.detectedGuideUrls=[];state.epgOrigin='none';$('epgUrl').value='';$('epgAutoBadge').textContent='Guide: checking playlist…';updateGuideUi();setSource(id);renderCategories();renderGuide();renderAbout();
+    const n=++state.requestId;epgFetchCounter++;stop();state.channels=[];state.programs=new Map();state.guideChannels=new Map();state.guideLogos=new Map();state.activeDetail=null;$('epgStatus').textContent='No guide selected';state.guideUrl='';state.guideSaveId='';state.detectedGuideUrls=[];state.epgOrigin='none';$('epgUrl').value='';$('epgAutoBadge').textContent='Guide: checking playlist…';updateGuideUi();setSource(id);renderCategories();renderGuide();renderAbout();
     if(!id){$('sourceStatus').textContent='Choose a playlist to browse channels.';return;}
     if(id==='local'){applyChannels(state.localEntries,'local file · not uploaded');void useDetectedGuide(state.localGuideUrls,null,n);return;}
     $('sourceStatus').textContent='Loading playlist…';
@@ -308,7 +338,7 @@
     try{
       const raw=await file.text();const entries=parseM3U(raw);const epgCandidates=discoverM3uGuideUrls(raw);if(!entries.length)throw new Error('No valid HTTP(S) stream URLs found in that file.');
       if(![...sourcePick.options].some(o=>o.value==='local'))sourcePick.add(new Option('Local session playlist','local'));
-      sourcePick.value='local';state.requestId++;window.TunelyMultiView?.close();stop();state.localEntries=entries;state.localGuideUrls=epgCandidates;state.programs=new Map();state.guideChannels=new Map();state.guideUrl='';state.guideSaveId='';state.epgOrigin='none';$('epgUrl').value='';$('epgAutoBadge').textContent='Guide: checking playlist…';setSource('local');applyChannels(entries,'local file · not uploaded');void useDetectedGuide(epgCandidates,null,state.requestId);
+      sourcePick.value='local';state.requestId++;window.TunelyMultiView?.close();stop();state.localEntries=entries;state.localGuideUrls=epgCandidates;state.programs=new Map();state.guideChannels=new Map();state.guideLogos=new Map();state.guideUrl='';state.guideSaveId='';state.epgOrigin='none';$('epgUrl').value='';$('epgAutoBadge').textContent='Guide: checking playlist…';setSource('local');applyChannels(entries,'local file · not uploaded');void useDetectedGuide(epgCandidates,null,state.requestId);
       setTab('guide');$('channelBrowser').scrollIntoView({behavior:'smooth',block:'start'});
     }catch(err){setNotice(err.message,'error');}
     ev.target.value='';
@@ -332,9 +362,9 @@
     if(/<!DOCTYPE|<!ENTITY/i.test(txt))throw new Error('XMLTV containing DTDs or entities is not supported.');
     const doc=new DOMParser().parseFromString(txt,'text/xml');
     if(doc.querySelector('parsererror'))throw new Error('Invalid XMLTV file.');
-    const guides=new Map(),names=new Map();
+    const guides=new Map(),names=new Map(),logos=new Map();
     for(const chan of [...doc.getElementsByTagName('channel')].slice(0,10000)){
-      const id=chan.getAttribute('id');if(id){for(const display of [...chan.getElementsByTagName('display-name')].slice(0,5)){const key=norm(display.textContent);if(key&&!names.has(key))names.set(key,id);}}
+      const id=chan.getAttribute('id');if(id){const logo=safeLogo(chan.getElementsByTagName('icon')[0]?.getAttribute('src'));if(logo)logos.set(id,logo);for(const display of [...chan.getElementsByTagName('display-name')].slice(0,5)){const key=norm(display.textContent);if(key&&!names.has(key))names.set(key,id);}}
     }
     for(const entry of [...doc.getElementsByTagName('programme')].slice(0,30000)){
       const id=entry.getAttribute('channel'),start=epgDate(entry.getAttribute('start')),end=epgDate(entry.getAttribute('stop'));
@@ -344,7 +374,7 @@
       programs.push({start,end,title:decodeName(first(entry,'title'))||'Untitled program',desc:first(entry,'desc').slice(0,280)});
     }
     for(const programs of guides.values())programs.sort((a,b)=>a.start-b.start);
-    state.programs=guides;state.guideChannels=names;
+    state.programs=guides;state.guideChannels=names;state.guideLogos=logos;
     return [...guides.values()].reduce((sum,x)=>sum+x.length,0);
   }
   $('xmltvFile').addEventListener('change',async ev=>{
@@ -560,7 +590,7 @@
       const {live,next}=currentNext(ch),button=node('button','guide-row');button.type='button';
       if(state.current&&cid(state.current)===cid(ch))button.classList.add('current');
       button.setAttribute('aria-label','Play '+ch.name);
-      const channel=node('span','guide-channel');channel.append(node('span','guide-channel-icon',logoText(ch.name)));
+      const channel=node('span','guide-channel');channel.append(channelAvatar(ch,'guide-channel-icon'));
       const cInfo=node('span');cInfo.append(node('b','',ch.name),node('small','',ch.group||'Other'));channel.append(cInfo);
       const now=node('span','guide-program');now.append(node('b','',live?live.title:'Guide unavailable'),node('span','',live?formatTime(live.start)+' – '+formatTime(live.end):'No current listing'));
       const future=node('span','guide-program next');future.append(node('b','',next?next.title:'No next program'),node('span','',next?formatTime(next.start):'—'));
@@ -641,7 +671,7 @@
       const row=node('div','epg-row');
       if(state.current && cid(state.current)===cid(ch))row.classList.add('tuned');
       const label=node('button','epg-channel-button');label.type='button';label.setAttribute('aria-label','Play '+ch.name);label.title='Play '+ch.name;
-      label.append(node('span','epg-channel-avatar',logoText(ch.name)));
+      label.append(channelAvatar(ch,'epg-channel-avatar'));
       const sub=node('span','epg-channel-meta');sub.append(node('strong','',ch.name),node('small','',ch.group||'Other'));label.append(sub);
       label.addEventListener('click',()=>{playChannel(ch);showGuideDetail(ch,null);});row.append(label);
       const track=node('div','epg-track');track.style.width=GRID_WIDTH+'px';
@@ -770,7 +800,20 @@
       }
     }catch{sourcePick.replaceChildren(new Option('Account playlists unavailable',''));$('sourceStatus').textContent='Sign in or use local session import.';setNotice('Account playlist service is unavailable. Local file import and direct stream testing remain available.','warn');}
   }
-  window.TunelyGuideBridge={getCurrent:()=>state.current,getChannels:()=>state.channels, getDetail:()=>state.activeDetail, getNowNext:ch=>ch?currentNext(ch):{live:null,next:null},formatTime, setGuideView, renderGuide, getProgramsLoaded:()=>state.programs.size, sourceId:()=>state.sourceId};
+  window.TunelyGuideBridge={
+    matchMissingLogos:channels=>apiMutation('/api/channel-logos/match','POST',{channels}),
+    applyLogoMatches:(matches,sourceId)=>{
+      if(sourceId!==state.sourceId)return 0;
+      let count=0;
+      for(const match of matches){
+        const ch=state.channels[match.index];
+        if(!ch||ch.logo||!safeLogo(match.url))continue;
+        ch.externalLogo=safeLogo(match.url);count++;
+      }
+      if(count){renderChannels();renderGuide();renderMiniGuide();}
+      return count;
+    },
+    getCurrent:()=>state.current,getChannels:()=>state.channels, getDetail:()=>state.activeDetail, getNowNext:ch=>ch?currentNext(ch):{live:null,next:null},formatTime, setGuideView, renderGuide, getProgramsLoaded:()=>state.programs.size, sourceId:()=>state.sourceId};
   window.TunelyMultiBridge={
     getChannels:()=>state.channels.slice(),
     getCurrent:()=>state.current,

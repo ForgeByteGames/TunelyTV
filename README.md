@@ -1,3 +1,7 @@
+# TunelyTV v0.9.8 — Live Guide Preview and Provider Logos
+
+New in v0.9.8: A live picture preview in the full-screen guide using the existing video player, HTTPS channel logos from the user's M3U/XMLTV metadata, and accessible XMLTV guide setup from within TV mode. See `V0.9.7-GUIDE-PREVIEW-AND-LOGOS.md`. This release retains v0.9.6 licensing and TMDb-ready code (TMDb remains disabled until commercial rights are secured).
+
 # TunelyTV v0.9.6 — License & Entitlement Management
 
 The complete Railway-ready private staging source package. Based on v0.9.5, preserving its blue discovery homepage, minimal Live TV mode, full-screen EPG, automatic XMLTV discovery, M3U account playlists, pairing simulator, cloud favorite/recent-channel endpoints, and test-only Stripe implementation.
@@ -32,3 +36,14 @@ Update the **existing** `ForgeByteGames/TunelyTV` repository and Railway service
 Run local tests: `PYTHONPATH=. python -m pytest -q` (with pytest/httpx installed). Local app: `python -m uvicorn server:app --reload --port 8765` after installing `requirements.txt`.
 
 **Not yet public-launch ready:** licensing and TV/device restrictions are staging-grade; actual Stripe live payments, store receipts, owner recovery, paid upgrade checkout, native clients, legal review, production logging and disaster recovery remain pending.
+
+### TMDB discovery integration (pre-launch preparation)
+
+The v0.9.6 code includes optional, server-side title/series search, trending rails, provider-reported availability, and country-specific title details. This ready-state patch adds JustWatch/TMDB text credits, a provider name compatibility fix, and an explicit **rights confirmation gate**. It does **not** add licensed data, images, or streaming channels.
+
+**Do not activate for paid/commercial TunelyTV until a written commercial TMDB agreement and required branding/credits are completed.** See `TMDB-SETUP-AND-RIGHTS.md`.
+
+
+## v0.9.8 automated missing channel logos
+
+See `V0.9.8-AUTOMATIC-CHANNEL-LOGOS.md` for the CSP fix, directory matcher, rights requirements and opt-in variables. Directory matching is OFF by default. Provider and XMLTV HTTPS logos load without it.

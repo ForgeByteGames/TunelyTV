@@ -1,0 +1,7 @@
+/* Separate from the viewing UI: visible inside Guide setup only. */
+.gf-logo-lookup{border-top:1px solid rgba(127,179,255,.22);padding:14px 8px 4px;margin-top:10px;color:#f2f7ff}
+.gf-logo-lookup strong{display:block;font-size:14px}
+.gf-logo-lookup p{font-size:13px;color:#b4cee9;margin:7px 0 9px}
+.gf-logo-lookup small{display:block;margin-top:8px;max-width:680px;line-height:1.5;color:#8caaca}
+.gf-logo-lookup button{border:1px solid #297bc9;border-radius:9px;background:#0b4b83;color:white;padding:9px 13px;cursor:pointer}
+.gf-logo-lookup button[hidden]{display:none}

@@ -22,7 +22,7 @@ function showDemo(){states.movies=demoEntries('movies');states.series=demoEntrie
 const disabled='Title discovery is being prepared. No catalog or programming is included with TunelyTV.';
 async function boot(){
  if(isDemo){showDemo();return;}
- try{states.status=await api('status');if(!states.status.enabled){for(const el of ['movieRail','seriesRail','serviceRail'])renderRail(el,[],disabled);return;}
+ try{states.status=await api('status');if(states.status.enabled)by('metadataCredits').hidden=false;if(!states.status.enabled){for(const el of ['movieRail','seriesRail','serviceRail'])renderRail(el,[],disabled);return;}
  const response=await api('home?region=US');states.movies=response.movies||[];states.series=response.series||[];
  renderRail('movieRail',states.movies,'No movie discovery results right now.');renderRail('seriesRail',states.series,'No series discovery results right now.');await chooseService('Netflix');
  }catch(err){for(const el of ['movieRail','seriesRail','serviceRail'])renderRail(el,[],'Discovery temporarily unavailable. Try again later.');}
@@ -64,7 +64,7 @@ async function openTitle(item){setOpen('searchDialog',false);setOpen('detailDial
  if(!found)body.append(make('p','','No viewing providers reported in '+states.region+' for this title.'));
  const link=data.watch_link;
  if(/^https:\/\/www\.themoviedb\.org\//.test(link||'')){const a=make('a','detail-external','View legal watching options ↗');a.href=link;a.target='_blank';a.rel='noopener noreferrer';body.append(a);}
- body.append(make('p','','Availability is supplied by third parties and may change. TunelyTV does not provide the movie or series.'));
+ body.append(make('p','','Watch-provider availability is reported via TMDB using JustWatch data, may change, and is not a TunelyTV subscription. TunelyTV does not provide the movie or series.'));
  }catch{body.replaceChildren(make('p','','Availability details are temporarily unavailable.'))}
 }
 for(const button of document.querySelectorAll('[data-show-all]'))button.addEventListener('click',()=>{const name=button.dataset.showAll;const id=name==='movies'?'movieRail':'seriesRail';const rail=by(id);rail.classList.toggle('expanded');button.textContent=rail.classList.contains('expanded')?'Show less':'View all ›';});

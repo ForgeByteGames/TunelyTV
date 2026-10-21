@@ -1,0 +1,24 @@
+/* Same player, two views. No extra stream connections. */
+.gf-art{position:relative;overflow:hidden;min-width:150px;display:block;padding:0;isolation:isolate}
+.gf-art-empty{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px}
+.gf-preview-slot{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+.gf-preview-slot video:not([hidden]){display:block;width:100%;height:100%;object-fit:contain;background:#020914;border:0}
+.gf-preview-slot video{max-width:100%}
+.gf-preview-slot video::-webkit-media-controls{display:none!important}
+.gf-art.is-live{border-color:#1e79bd;box-shadow:0 0 0 1px #0c54a733}
+.gf-preview-state{position:absolute;bottom:7px;left:8px;padding:3px 6px;border-radius:4px;font-size:8px;letter-spacing:1px;background:#03182bdb;color:#8bd8ff;font-weight:800;pointer-events:none}
+.gf-guide-settings{border-color:#24527e!important;color:#b5deff!important}
+.gf-setup-panel{position:absolute;z-index:40;inset:54px 10px auto auto;width:min(610px,calc(100vw - 20px));max-height:calc(100dvh - 66px);overflow:auto;background:#091c30;border:1px solid #336294;border-radius:12px;box-shadow:0 22px 80px #000c;padding:12px 14px}
+.gf-setup-panel[hidden]{display:none!important}
+.gf-setup-header{display:flex;align-items:start;justify-content:space-between;gap:15px;margin-bottom:12px}
+.gf-setup-header strong{font-size:15px;color:#e8f7ff}
+.gf-setup-header p{font-size:11px;line-height:1.4;color:#a0c0d7;margin:7px 0}
+.gf-setup-header button{padding:7px 10px;background:#17375c;color:white;border:1px solid #305884;border-radius:7px}
+.gf-setup-panel .epg-advanced-settings{margin:0!important}
+.gf-setup-panel .epg-advanced-grid{grid-template-columns:1fr}
+/* Logos are optional. Show initials until the provider's HTTPS image loads. */
+.channel-icon,.guide-channel-icon,.epg-channel-avatar{position:relative;overflow:hidden;flex-shrink:0}
+.channel-avatar-fallback{display:grid;place-items:center;width:100%;height:100%}
+.channel-avatar-image{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#102c45;padding:2px}
+.channel-avatar-image[hidden],.channel-avatar-fallback[hidden]{display:none!important}
+@media(max-width:600px){.gf-art{min-width:89px}.gf-art-empty{gap:4px}.gf-setup-panel{top:48px}}

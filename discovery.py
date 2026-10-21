@@ -11,14 +11,27 @@ from urllib.error import HTTPError, URLError
 from fastapi import HTTPException
 
 API='https://api.themoviedb.org/3'
-SERVICES={'Netflix':'netflix','Prime Video':'amazon prime video','Disney+':'disney plus','Hulu':'hulu',
-          'Max':'max','Apple TV+':'apple tv plus','Peacock':'peacock','Paramount+':'paramount plus'}
+SERVICES={
+    'Netflix': ('netflix',),
+    'Prime Video': ('amazon prime video',),
+    'Disney+': ('disney plus', 'disney+'),
+    'Hulu': ('hulu',),
+    'Max': ('max', 'hbo max'),
+    'Apple TV+': ('apple tv plus', 'apple tv+'),
+    'Peacock': ('peacock', 'peacock premium'),
+    'Paramount+': ('paramount plus', 'paramount+'),
+}
 
 def install_discovery(app):
     # Token is never returned to frontend. Explicit opt-in prevents accidental commercial use.
     token=os.getenv('TUNELY_TMDB_READ_TOKEN','').strip()
     api_key=os.getenv('TUNELY_TMDB_API_KEY','').strip()
-    enabled=os.getenv('TUNELY_METADATA_ENABLED','').lower()=='true' and bool(token or api_key)
+    # This project is intended for commercial operation: TMDb requires a separate
+    # written agreement. A normal developer key is not a commercial license.
+    # Leave this disabled until that agreement and branding requirements are met.
+    approved=os.getenv('TUNELY_TMDB_RIGHTS_CONFIRMED','').strip().lower()=='true'
+    enabled=(os.getenv('TUNELY_METADATA_ENABLED','').strip().lower()=='true'
+             and approved and bool(token or api_key))
     cache={};lock=threading.Lock()
     def fetch(path,params=None,ttl=1200):
         if not enabled:raise HTTPException(status_code=503,detail='Metadata discovery is not configured.')
@@ -35,7 +48,7 @@ def install_discovery(app):
                 raw=res.read(1_200_001)
                 if len(raw)>1_200_000:raise ValueError('Metadata reply too large')
                 data=json.loads(raw)
-        except (HTTPError,URLError,TimeoutError,ValueError) as exc:
+        except (HTTPError,URLError,TimeoutError,ValueError, OSError) as exc:
             raise HTTPException(status_code=502,detail='Metadata provider unavailable') from exc
         with lock:
             if len(cache)>160:cache.clear()
@@ -62,14 +75,15 @@ def install_discovery(app):
         return fetch('/watch/providers/'+kind,{'watch_region':'US'},ttl=86400).get('results',[])
     def find_service_id(label):
         if label not in SERVICES:raise HTTPException(404,'Unknown service')
-        needle=SERVICES[label]
+        needles={re.sub(r'[^a-z0-9]','',alias.lower()) for alias in SERVICES[label]}
         for item in providers('movie'):
             normalized_name=re.sub(r'[^a-z0-9]','',str(item.get('provider_name','')).lower())
-            if normalized_name==re.sub(r'[^a-z0-9]','',needle):return item['provider_id']
+            if normalized_name in needles and isinstance(item.get('provider_id'),int):
+                return item['provider_id']
         return None
 
     @app.get('/api/discover/status')
-    def status():return {'enabled':enabled,'provider':'TMDb' if enabled else None,'country':'US','notice':'No content provided by TunelyTV'}
+    def status():return {'enabled':enabled,'provider':'TMDB' if enabled else None,'country':'US','notice':'No content provided by TunelyTV', 'watch_provider_source':'JustWatch' if enabled else None}
 
     @app.get('/api/discover/home')
     def home(region:str='US'):
