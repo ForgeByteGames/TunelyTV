@@ -24,6 +24,7 @@ from licensing import account_access, install_licensing
 from logo_catalog import install_logo_catalog
 from provider_metadata import (ProviderError, is_m3u_plus, derive_xmltv_url,
                                fetch_metadata, parse_remote_playlist, decode_xmltv)
+from sports_premium import install_premium_sports
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError, VerificationError
 from cryptography.fernet import Fernet
@@ -853,6 +854,31 @@ def create_app(db_path: str | Path | None = None, key_path: str | Path | None = 
         if not row:
             fail('Device authorization revoked or invalid.', 401)
         return row
+
+    def sports_access(authorization: str | None, tunely_session: str | None):
+        """Only a real signed-in account or an active *paired* device may read sports.
+
+        Never treat X-Nexa-Profile or a caller-supplied profile ID as proof of
+        authorization; the live Android profile-token service is separate.
+        """
+        if authorization is not None:
+            device = app_device(authorization)
+            if device['owner_id'] is None:
+                fail('This device has not been paired to an account.', 403)
+            with db() as con:
+                slots = account_access(con, device['owner_id'])['tv_slots']
+                assigned = con.execute(
+                    'SELECT id FROM devices WHERE owner_id=? ORDER BY created_at, id LIMIT ?',
+                    (device['owner_id'], slots)
+                ).fetchall()
+            if device['id'] not in {row['id'] for row in assigned}:
+                fail('This device exceeds the account TV allowance.', 403)
+            return device['owner_id']
+        return auth_session(tunely_session)['user_id']
+
+    # Backend-only Premium V2 sports relays. No key or private provider URL
+    # is exposed in the APK; these routes reuse the original app's real auth.
+    install_premium_sports(app, sports_access)
 
     @app.post('/api/device/enroll', status_code=201)
     def enroll(inp: Enroll, request: Request):
