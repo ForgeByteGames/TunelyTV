@@ -17,7 +17,7 @@ import threading
 import time
 from typing import Callable
 from urllib.error import HTTPError, URLError
-from urllib.request import Request, urlopen
+from urllib.request import Request, build_opener, HTTPRedirectHandler
 
 from fastapi import Cookie, FastAPI, Header, HTTPException, Query
 
@@ -31,6 +31,11 @@ MAX_BYTES = 2_000_000
 
 class SportsSourceError(Exception):
     """An upstream failure; never expose raw provider or key details."""
+
+class NoProviderRedirect(HTTPRedirectHandler):
+    """Never forward the Premium X-API-KEY header to a redirected hostname."""
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
 
 def _text(value) -> str:
     return str(value).strip() if isinstance(value, (str, int, float)) else ""
@@ -164,10 +169,10 @@ class PremiumSportsService:
             "User-Agent": "tunelyTV-backend/1"
         })
         try:
-            with urlopen(request, timeout=9) as response:
+            with build_opener(NoProviderRedirect).open(request, timeout=9) as response:
                 if response.status != 200:
                     raise SportsSourceError("Provider unavailable")
-                if response.geturl().split("/")[2] != "www.thesportsdb.com":
+                if response.geturl().split("/")[0:3] != ["https:", "", "www.thesportsdb.com"]:
                     raise SportsSourceError("Untrusted redirect")
                 data = response.read(MAX_BYTES + 1)
                 if len(data) > MAX_BYTES:
