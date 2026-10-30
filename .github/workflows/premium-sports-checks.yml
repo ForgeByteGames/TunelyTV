@@ -30,10 +30,7 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt pytest httpx
       - name: Verify Railway Dockerfile bundles the sports backend
-        run: grep -Eq '^COPY .*sports_premium\\.py ./.*        run: python -m compileall -q server.py sports_premium.py
-      - name: Test Premium sports and existing auth/device pairing
-        run: PYTHONPATH=. python -m pytest -q tests/test_premium_sports.py tests/test_api.py tests/test_qr_pairing_v0910.py
- Dockerfile
+        run: grep -Fq 'sports_premium.py' Dockerfile
       - name: Compile Python sources
         run: python -m compileall -q server.py sports_premium.py
       - name: Test Premium sports and existing auth/device pairing
